@@ -478,6 +478,7 @@ async function picBlob(sl,p){ const t=resolve(sl.path,sl.rels[p.rid].target); re
 
 /* ---- 色 ---- */
 function palette(main){
+  if(main==="D95200") return {main,solar:"D95200",solarTxt:"B34700",light:"FDF4EC",solarLight:"FEF0E3",line:"F2DCCB",hi:"D95200"};   // 南海不動産版（オレンジ）
   if(main==="3962AD") return {main,solar:"009FB8",solarTxt:"007F93",light:"EFF3FA",solarLight:"E8F6F9",line:"D7DFEC",hi:"0089A3"};
   return {main,solar:"04988A",solarTxt:"04786C",light:"F0F6F4",solarLight:"E6F4F1",line:"D6E2DD",hi:"04988A"};
 }
@@ -2711,7 +2712,8 @@ function accSame(a,b){
 function accGuessJo(){
   if(+$("accJo").value) return;
   var src=(ACC?ACC.names.join(" "):"")+" "+(typeof DECKX!=="undefined"&&DECKX&&DECKX.slides?DECKX.slides.map(function(s){ return s.text; }).join(" "):"");
-  var m=nfkc(src).match(/LDK[^0-9]{0,6}(\d+(?:\.\d+)?)\s*(帖|畳|J)/);
+  // 「LDKはNシリーズ18畳用」のような機種名（○畳用）は帖数ではないので拾わない
+  var m=nfkc(src).match(/LDK[\s:：（(約]{0,4}(\d+(?:\.\d+)?)\s*(帖|畳|J)(?!用)/);
   if(m) $("accJo").value=+m[1];
 }
 function accSelectedNames(){ return [].slice.call($("accRooms").querySelectorAll("input:checked")).map(function(e){ return ACC.names[+e.dataset.col]; }); }
