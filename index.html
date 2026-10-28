@@ -3032,14 +3032,18 @@ function acBuildingLot(){
   for(var p of AC.pages) for(var s of p.t){ if(/号地/.test(s)){ var l=lotOf(s); if(l) return l; } }
   return lotOf(AC.file);
 }
+var AC_CP_KEYS=["物件名","地域区分","LDK床面積","床面積の根拠","天井高","天井高の根拠","高天井面積","高天井高さ","高天井の根拠","吹抜け","吹抜けの根拠","リビング階段","リビング階段の根拠","外壁","窓","屋根","天井","設計図","確認してほしいこと"];
 function acImportBlock(text){
   var msg=[], warn=[], bad=[];
   var src=String(text||"").normalize("NFKC");
   var a=src.indexOf("[LDKエアコン選定 v1]"), b=src.indexOf("[終わり]", a);
   if(a<0||b<0){ $("acCpMsg").innerHTML='<span class="ng">[LDKエアコン選定 v1] 〜 [終わり] が見つかりません。Copilotの答えから、その間をコピーして貼り付けてください。</span>'; return; }
   if(!AC.walls.length){ $("acCpMsg").innerHTML='<span class="ng">先に、外皮計算書のPDFを上の欄に入れてください（区画の一覧と照らし合わせるため）。</span>'; return; }
-  var kv={};
-  src.slice(a+"[LDKエアコン選定 v1]".length,b).split(/\r?\n/).forEach(function(l){ var i=l.indexOf("="); if(i>0) kv[l.slice(0,i).trim()]=l.slice(i+1).trim(); });
+  // 「キー=値」を、次のキー名の手前までで区切る（改行がなく1行につながって出ることもあるため）
+  var kv={}, body=src.slice(a+"[LDKエアコン選定 v1]".length,b);
+  var re=new RegExp("(?:^|[\\s|、,])("+AC_CP_KEYS.slice().sort(function(x,y){ return y.length-x.length; }).join("|")+")\\s*=","g"), hit=[], m;
+  while((m=re.exec(body))){ hit.push({k:m[1], s:m.index+m[0].length, e:m.index}); re.lastIndex=m.index+m[0].length; }
+  hit.forEach(function(h,i){ kv[h.k]=body.slice(h.s, i+1<hit.length?hit[i+1].e:body.length).trim().replace(/[,、]$/,"").trim(); });
   var unk=function(v){ return v==null || v==="" || /不明|わからない|未確認$/.test(v); };
   var KON=["図面で確認","外皮計算書","設計者に確認","仮定"];
   // 数字の項目
@@ -3073,26 +3077,50 @@ function acImportBlock(text){
       if(!w){ warn.push("窓 "+id+" は計算書にありません"); return; } $("acWin_"+id.slice(1)).checked=true; }); }
   else if(kv["窓"]!==undefined) bad.push("窓");
   if(lr||lc){ AC.roofs.forEach(function(r){ $("acRoof_"+r.id).checked=false; $("acRoofA_"+r.id).value=Math.round(r.area*1000)/1000; }); }
-  [["屋根",lr],["天井",lc]].forEach(function(pp){ if(!pp[1]){ if(kv[pp[0]]!==undefined && !/^なし/.test(kv[pp[0]])) bad.push(pp[0]); return; }
+  var roofUnk=false;
+  [["屋根",lr],["天井",lc]].forEach(function(pp){ if(!pp[1]){ if(kv[pp[0]]!==undefined && !/^なし/.test(kv[pp[0]])){ bad.push(pp[0]); roofUnk=true; } return; }
     pp[1].forEach(function(x){ if(/^なし$/.test(x.name)) return; var r=AC.roofs.find(function(r){ return r.part===pp[0] && r.sec===x.name; });
       if(!r){ warn.push(pp[0]+" "+x.name+" は計算書にありません"); return; }
       $("acRoof_"+r.id).checked=true; if(x.val!=null) $("acRoofA_"+r.id).value=x.val; }); });
   // 設計図の名前（注記の出典に使う）
   // 設計図の名前は、ページの注記にそのまま出すので、全角のかっこなどを変えずに元の文字で入れる
-  var rawDwg=(String(text).match(/設計図\s*[=＝]\s*(.+)/)||[])[1];
+  var rawDwg=(String(text).match(/設計図\s*[=＝]\s*(.+?)(?=\s+確認してほしいこと\s*[=＝]|\s*\[終わり\]|$)/m)||[])[1];
   if(kv["設計図"] && !unk(kv["設計図"]) && !/^なし/.test(kv["設計図"])){ $("acDwgBox").style.display="block"; if(!$("acDwgName").value) $("acDwgName").value=(rawDwg||kv["設計図"]).trim(); }
   // 物件違い
   var pl=lotOf(kv["物件名"]), bl=acBuildingLot(), dl=lotOf(DECKFILE&&DECKFILE.name);
-  if(pl && bl && pl!==bl) warn.push("Copilotの物件名（"+pl+"）と、読み込んだ計算書（"+bl+"）が違います");
-  if(pl && dl && pl!==dl) warn.push("Copilotの物件名（"+pl+"）と、提案書（"+dl+"）が違います");
+  if(pl && bl && !acSameLot(pl,bl)) warn.push("Copilotの物件名（"+pl+"）と、読み込んだ計算書（"+bl+"）が違います");
+  if(pl && dl && !acSameLot(pl,dl)) warn.push("Copilotの物件名（"+pl+"）と、提案書（"+dl+"）が違います");
   acUpdate();
+  $("acRoofs").style.outline=roofUnk?"2px solid #C0392B":"";
   var ask=kv["確認してほしいこと"];
   $("acCpMsg").innerHTML='<span class="ok">✔ 取り込みました。</span> 平面図と見比べて、チェックが合っているか確かめてください。'+
     (warn.length?'<div class="ng" style="margin-top:4px">⚠ '+warn.join("<br>⚠ ")+'</div>':'')+
     (bad.length?'<div class="ng" style="margin-top:4px">「不明」などで取り込まなかった項目（赤い枠）: '+bad.join("・")+' → 手で入れてください</div>':'')+
+    (roofUnk?'<div class="ng" style="margin-top:4px">屋根・天井が「不明」です → 平面図で、<b>LDKの真上に2階がない部分</b>の屋根（または天井）を、下の一覧から選んでください。一部だけなら「使う面積」を直します。</div>':'')+
+    acReviewHtml()+
     (ask && !/^なし/.test(ask)?'<div style="margin-top:6px;padding:8px 10px;background:#FFF4E5;border-left:4px solid #E8862E"><b>Copilotからの確認事項:</b> '+ask.replace(/</g,"&lt;")+'</div>':'');
 }
-(function(){ $("acCpBtn").onclick=function(){ acImportBlock($("acCpText").value); }; })();
+// 物件名は会社名が前に付くことがあるので、部分一致で同じ物件とみなす
+function acSameLot(x,y){ return x===y || x.indexOf(y)>=0 || y.indexOf(x)>=0; }
+// Copilot は「区画の一部だけLDK」が苦手 → 選ばなかった1階の外壁（高さ3.1m前後）と1階の屋根・天井を、見落とし確認として出す
+var AC_REVIEW=[];
+function acReviewHtml(){
+  var ws=AC.walls.filter(function(w){ return String(w.floor)==="1" && w.h>=2.8 && w.h<=3.5 && !$("acWall_"+w.id).checked; });
+  var rs=AC.roofs.filter(function(r){ return String(r.floor)==="1" && !$("acRoof_"+r.id).checked; });
+  AC_REVIEW=ws.map(function(w){ return "acWall_"+w.id; }).concat(rs.map(function(r){ return "acRoof_"+r.id; }));
+  if(!AC_REVIEW.length) return "";
+  var li=function(id,txt){ return '<label style="display:inline-block;margin:2px 12px 2px 0"><input type="checkbox" data-rv="'+id+'"> '+txt+'</label>'; };
+  return '<div style="margin-top:6px;padding:8px 10px;background:#EEF4FB;border-left:4px solid #3B6FB6"><b>見落としがないか確認</b>（Copilotが選ばなかった1階の区画。平面図を見て、LDKに面するものにチェック。一部だけなら下の表で「使う幅」「使う面積」を直す）'+
+    (ws.length?'<br>外壁: '+ws.map(function(w){ return li("acWall_"+w.id, w.sec+"（"+w.dir+"・"+w.area.toFixed(2)+"㎡）"); }).join(""):'')+
+    (rs.length?'<br>屋根・天井: '+rs.map(function(r){ return li("acRoof_"+r.id, r.part+" "+r.sec+"（"+r.area.toFixed(2)+"㎡）"); }).join(""):'')+'</div>';
+}
+// 見落とし確認のうち、まだ計算に入っていない区画
+function acReviewLeft(){ return AC_REVIEW.filter(function(id){ var e=$(id); return e && !e.checked; }); }
+(function(){
+  $("acCpBtn").onclick=function(){ acImportBlock($("acCpText").value); };
+  // 確認の一覧のチェックを、下の表のチェックに写す
+  $("acCpMsg").addEventListener("change",function(ev){ var id=ev.target.dataset&&ev.target.dataset.rv; if(!id) return; $(id).checked=ev.target.checked; acUpdate(); });
+})();
 
 /* ---- 提案書を読み込む ---- */
 async function openDeck(file){
@@ -3175,6 +3203,7 @@ $("buildBtn").onclick=async function(){
   if(doHealth && !window.HEALTH){ alert("健康評価: 先に「★を判定する」を押してください。"); tabTo("health"); return; }
   var doDrop=PDFDATA&&PDFDATA.drop&&$("useDrop").checked, doSolar=$("useSolar").checked, doAircon=$("useAircon").checked&&AC_LAST&&AC_LAST.r.model;
   if(doSolar && !(+$("sol_t1").value && +$("sol_t2").value && +$("sol_t3").value && +$("sol_init").value)){ alert("太陽光: ①②③と設置費用を入れてください。"); tabTo("solar"); return; }
+  if(doAircon && acReviewLeft().length && !confirm("エアコン選定: 見落とし確認の区画のうち、"+acReviewLeft().length+"つにチェックが付いていません（計算に入っていません）。\nLDKに面していないことを平面図で確かめたなら、このまま反映してください。\n反映しますか？")){ tabTo("aircon"); return; }
   if(!doCost&&!doRoom&&!doHealth&&!doDrop&&!doSolar&&!doAircon){ alert("入れたいページにチェックを付けてください。"); return; }
   $("buildBtn").disabled=true; $("bmsg").textContent="作成中…";
   try{
