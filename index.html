@@ -283,13 +283,13 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
     <div id="accRooms" style="margin-bottom:10px;font-size:13px"></div>
     足りない時間の上限 <input type="number" id="accLim" value="10" style="width:60px"> 時間／年 <span class="hint">（冷房・暖房とも、定格能力で足りない時間がこれ以下の、いちばん小さい機種を選びます）</span><br>
     LDKの帖数 <input type="number" step="0.1" id="accJo" style="width:70px"> 帖 <span class="hint">（帖数どおりに選んだ場合との比較に使います。提案書に「LDK○帖」とあれば自動で入ります）</span><br>
-    おすすめの機種（ページに出す） <input type="text" id="accMaker" value="パナソニック エオリア" style="width:260px"><br>
-    機種のひとこと <input type="text" id="accPoint" value="高断熱の家に合う、ちょうどよい能力の1台を。" style="width:560px"> <span class="hint">（シリーズの特長などに書き換えられます）</span>
+    おすすめの機種（ページに出す） <input type="text" id="accMaker" value="パナソニック エオリア Nシリーズ" style="width:260px"><br>
+    機種のひとこと <input type="text" id="accPoint" value="ZEH対応のスタンダードモデル（住宅設備モデル）。サビや潮風に強い耐塩害仕様。" style="width:560px"> <span class="hint">（特に指示がなければNシリーズ。品番は機種表から自動で入ります）</span>
   </div>
   <div class="board">
     <h2>3. 結果</h2>
     <div id="acResult"></div>
-    <details style="margin-top:10px"><summary class="hint">機種表（定格能力。使う機種のカタログ値に直せます）</summary><div id="acModels"></div></details>
+    <details style="margin-top:10px"><summary class="hint">機種表（エオリア Nシリーズ 2027年モデルの定格能力。Nシリーズは18畳用まで。使う機種のカタログ値に直せます）</summary><div id="acModels"></div></details>
   </div>
 </section>
 
@@ -954,7 +954,7 @@ function buildAircon(d){
   const items=[
     ["電気代","小さな負荷で運転と停止をくり返し、効率のよくない運転が増えます。"],
     ["湿気戻り","冷房がすぐ止まり、冷やしたときに出た水分が部屋に戻って、じめじめしやすくなります。"],
-    ["初期費用",big200?"本体が高いうえ、18畳用以上は200Vの専用コンセントの工事が必要です。":"能力の大きい機種ほど、本体の価格が高くなります。"]];
+    ["初期費用",big200?`本体が高いうえ、${accFirst200()}以上は200Vの専用コンセントの工事が必要です。`:"能力の大きい機種ほど、本体の価格が高くなります。"]];
   items.forEach(([k,v],i)=>{
     const y=Y+0.85+i*1.0;
     b.shape(1.45,y+0.12,2.1,0.62,{geom:"roundRect",adj:50000,fill:i===1?ORANGE:MAIN,paras:b.para([[k,9.5,"FFFFFF",true]],"ctr"),wrap:false});
@@ -965,7 +965,7 @@ function buildAircon(d){
   b.rect(X,Y,W,H,pal.light);
   b.label(X+0.35,Y+0.15,W-0.7,0.55,[["おすすめの機種",10,"595959",true]]);
   b.label(X+0.35,Y+0.7,W-0.7,0.7,[[d.maker||"",15,"262626",true]]);
-  b.label(X+0.35,Y+1.4,W-0.7,0.7,[[mdl,20,MAIN,true],[`  冷房${f1(P.m[1])}kW・${volt(P.m)}`,9.5,"404040",false]]);
+  b.label(X+0.35,Y+1.4,W-0.7,0.7,[[mdl,20,MAIN,true],[`  ${P.m[4]?P.m[4]+"・":""}冷房${f1(P.m[1])}kW・${volt(P.m)}`,9.5,"404040",false]]);
   b.shape(X+0.35,Y+2.15,W-0.7,H-2.3,{txBox:true,anchor:"t",paras:
     (d.point?b.para([[d.point,9.5,"404040",false]]):"")+
     (volt(P.m)==="100V"?b.para([["ふつうの100Vのコンセントで設置できます。",9.5,"404040",false]]):"")});
@@ -2668,8 +2668,10 @@ cropSideGap=function(img,gap,side){ return trimToPlan(_cropSideGap(img,gap,side)
    選び方: 冷房・暖房とも「定格能力で足りない時間が年○時間以下」になる、いちばん小さい機種。
    「立ち上がり」＝直前の1時間がその運転（暖房なら暖房）でなかった時間。
    断熱等級4（比較プラン）のCSVも入れると、同じ選び方で「等級4の家なら○畳用」を出す（任意）。 */
-var AC_MODELS=[["6畳用",2.2,2.5],["8畳用",2.5,2.8],["10畳用",2.8,3.6],["12畳用",3.6,4.2],["14畳用",4.0,5.0],
-  ["18畳用",5.6,6.7],["20畳用",6.3,7.1],["23畳用",7.1,8.5],["26畳用",8.0,9.5],["29畳用",9.0,10.0]];
+/* 機種表: [名前, 冷房定格kW, 暖房定格kW, 電源, 品番]。18畳用まではパナソニック エオリア Nシリーズ（住宅設備モデル・2027年モデル）。
+   Nシリーズは18畳用まで → 20畳用以上は帖数どおりに選んだ場合と比べるための一般的な値（品番なし） */
+var AC_MODELS=[["6畳用",2.2,2.5,"100V","CS-227DN"],["8畳用",2.5,2.8,"100V","CS-257DN"],["10畳用",2.8,3.6,"100V","CS-287DN"],["12畳用",3.6,4.2,"100V","CS-367DN"],
+  ["14畳用",4.0,5.0,"200V","CS-407DN2"],["18畳用",5.6,6.7,"200V","CS-567DN2"],["20畳用",6.3,7.1,"200V",""],["23畳用",7.1,8.5,"200V",""],["26畳用",8.0,9.5,"200V",""],["29畳用",9.0,10.0,"200V",""]];
 var ACC=null, ACC4=null;   // { file, names, times, cols[i]=8,760時間の値（Wh） }
 var AC_LAST=null;
 
@@ -2714,10 +2716,12 @@ function accGuessJo(){
   if(m) $("accJo").value=+m[1];
 }
 function accSelectedNames(){ return [].slice.call($("accRooms").querySelectorAll("input:checked")).map(function(e){ return ACC.names[+e.dataset.col]; }); }
-function accModels(){ return AC_MODELS.map(function(m,i){ return [m[0], +$("acMc"+i).value||m[1], +$("acMh"+i).value||m[2]]; }); }
+function accModels(){ return AC_MODELS.map(function(m,i){ return [m[0], +$("acMc"+i).value||m[1], +$("acMh"+i).value||m[2], m[3], m[4]]; }); }
 function accLabel(t){ var m=String(t).match(/(\d+)\/(\d+)_(\d+):(\d+)/); return m?(+m[1])+"/"+(+m[2])+" "+(+m[3])+":"+m[4]:t; }
-/* 電源: 18畳用以上は200V、14畳用は100V・200Vの両方がある、12畳用以下は100V（パナソニック エオリアの品ぞろえの目安） */
-function accVolt(m){ var j=parseFloat(m[0]); return j>=18?"200V":j>=14?"100V／200V":"100V"; }
+/* 電源（機種表の値。Nシリーズは14畳用から200V） */
+function accVolt(m){ return m[3]||"200V"; }
+/* いちばん小さい200Vの機種（「○畳用以上は200V」の説明に使う） */
+function accFirst200(){ var m=AC_MODELS.find(function(x){ return x[3]==="200V"; }); return m?m[0]:"14畳用"; }
 
 /* 1つの運転（暖房 or 冷房）の集計。v[i]=その時間の負荷（kW、運転していない時間は0） */
 function accStats(v){
@@ -2772,8 +2776,8 @@ function accUpdate(){
   $("acResult").innerHTML=h;
 }
 function accDrawModels(){
-  var h='<table><tr><th>機種</th><th>冷房 定格 (kW)</th><th>暖房 定格 (kW)</th></tr>';
-  AC_MODELS.forEach(function(m,i){ h+='<tr><td>'+m[0]+'</td><td><input type="number" step="0.1" id="acMc'+i+'" value="'+m[1]+'" style="width:70px"></td><td><input type="number" step="0.1" id="acMh'+i+'" value="'+m[2]+'" style="width:70px"></td></tr>'; });
+  var h='<table><tr><th>機種</th><th>品番（Nシリーズ）</th><th>電源</th><th>冷房 定格 (kW)</th><th>暖房 定格 (kW)</th></tr>';
+  AC_MODELS.forEach(function(m,i){ h+='<tr><td>'+m[0]+'</td><td>'+(m[4]||'<span class="hint">（比較用）</span>')+'</td><td>'+m[3]+'</td><td><input type="number" step="0.1" id="acMc'+i+'" value="'+m[1]+'" style="width:70px"></td><td><input type="number" step="0.1" id="acMh'+i+'" value="'+m[2]+'" style="width:70px"></td></tr>'; });
   $("acModels").innerHTML=h+'</table>';
   $("acModels").querySelectorAll("input").forEach(function(e){ e.oninput=accUpdate; });
 }
