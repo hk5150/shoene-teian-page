@@ -276,14 +276,14 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
   </div>
   <div class="board" id="acCondBox">
     <h2>2. 条件</h2>
-    <p class="sub">計算書に載っていないもの（天井高・吹抜け・リビング階段・換気の熱交換）は、ここで入れます。地域区分 <b id="acRegion">—</b></p>
+    <p class="sub">計算書に載っていないもの（天井高・吹抜け・リビング階段・換気の熱交換）は、ここで入れます。天井高は断面図の数字（高天井の部分があれば、その面積と高さも）。吹抜け・リビング階段は「あり」を選ぶと、見込みの面積と割増（暖房・冷房とも）で計算します。地域区分 <b id="acRegion">—</b></p>
     <table>
       <tr><td>LDKの床面積</td><td><input type="number" step="0.01" id="acArea" value="0" style="width:90px"> ㎡ <label class="hint"><input type="checkbox" id="acFloorOn" checked> 床から逃げる熱を入れる（1階のLDK）</label></td>
-          <td>天井高</td><td><input type="number" step="0.1" id="acH" value="2.4" style="width:70px"> m</td></tr>
+          <td>天井高（基本）</td><td><input type="number" step="0.01" id="acH" value="2.4" style="width:70px"> m　高天井 <input type="number" step="0.01" id="acHiA" value="0" style="width:60px"> ㎡・高さ <input type="number" step="0.01" id="acHiH" value="3.2" style="width:60px"> m <span class="hint">（なければ0㎡）</span></td></tr>
       <tr><td>冬 室温／外気温</td><td><input type="number" id="acTin" value="20" style="width:60px"> ℃ ／ <input type="number" id="acToutW" value="0" style="width:60px"> ℃ <span class="hint">（地域区分から自動）</span></td>
           <td>夏 室温／外気温</td><td><input type="number" id="acTinS" value="27" style="width:60px"> ℃ ／ <input type="number" id="acToutS" value="34" style="width:60px"> ℃</td></tr>
-      <tr><td>吹抜けの面積／高さ</td><td><input type="number" step="0.1" id="acFukiA" value="0" style="width:70px"> ㎡ ／ <input type="number" step="0.1" id="acFukiH" value="5" style="width:60px"> m</td>
-          <td>リビング階段</td><td><select id="acStair"><option>なし</option><option>あり</option></select> つながる2階 <input type="number" step="0.1" id="acStairA" value="0" style="width:60px"> ㎡・天井高 <input type="number" step="0.1" id="acStairH" value="2.4" style="width:56px"> m</td></tr>
+      <tr><td>吹抜け</td><td><select id="acFuki"><option>なし</option><option>あり</option></select> 見込み 面積 <input type="number" step="0.1" id="acFukiA" value="8" style="width:56px"> ㎡ × 増える高さ <input type="number" step="0.1" id="acFukiH" value="2.9" style="width:56px"> m・割増 <input type="number" id="acFukiK" value="10" style="width:46px"> %</td>
+          <td>リビング階段</td><td><select id="acStair"><option>なし</option><option>あり</option></select> 見込み つながる2階 <input type="number" step="0.1" id="acStairA" value="5" style="width:56px"> ㎡・割増 <input type="number" id="acStairK" value="10" style="width:46px"> %</td></tr>
       <tr><td>換気回数／熱交換</td><td><input type="number" step="0.1" id="acAch" value="0.5" style="width:60px"> 回/h ／ 熱交換効率 <input type="number" id="acHx" value="0" style="width:56px"> % <span class="hint">（熱交換なしは0）</span></td>
           <td>人数／家電の発熱</td><td><input type="number" id="acPpl" value="4" style="width:56px"> 人 ／ <input type="number" id="acAppl" value="400" style="width:70px"> W</td></tr>
       <tr><td>余裕率</td><td><input type="number" id="acMargin" value="30" style="width:60px"> %</td>
@@ -2702,7 +2702,9 @@ function acSun(table,dir){
 /* ---- 計算（Excel と同じ式） ---- */
 function acCalc(c,parts){
   var dW=c.tIn-c.tOutW, dS=c.tOutS-c.tInS;
-  var vol=c.area*c.h + c.fukiA*Math.max(0,c.fukiH-c.h) + (c.stair?c.stairA*c.stairH:0);
+  // LDKの気積（高天井の部分は高い分だけ足す）＋吹抜けの見込み（面積×増える高さ）＋リビング階段の見込み（2階の面積×LDKの天井高）
+  var ldkVol=c.area*c.h + (c.hiA>0?c.hiA*Math.max(0,c.hiH-c.h):0), hAvg=c.area>0?ldkVol/c.area:c.h;
+  var vol=ldkVol + (c.fuki?c.fukiA*c.fukiH:0) + (c.stair?c.stairA*hAvg:0);
   var vent=vol*c.ach;
   var P=parts.map(function(p){
     var heat=p.area*p.U*dW*(p.kind==="床"?c.floorK:1);
@@ -2713,16 +2715,16 @@ function acCalc(c,parts){
   });
   var sum=function(k,f){ return P.filter(f||function(){return true;}).reduce(function(a,p){return a+p[k];},0); };
   var envH=sum("heat"), ventH=0.33*vent*dW*(1-(c.hx||0));
-  var extra=(c.fukiA>0?c.fukiK:0)+(c.stair?c.stairK:0);
+  var extra=(c.fuki?c.fukiK:0)+(c.stair?c.stairK:0);   // 吹抜け・リビング階段の割増（暖房・冷房の両方）
   var heatKW=(envH+ventH)*(1+extra)*(1+c.margin)/1000;
   var env=sum("cool"), ventS=0.33*vent*dS*(1-(c.hx||0)), ventL=0.83*vent*c.dx, ppl=c.people*(c.sens+c.lat), app=c.appl;
   var t10=(env+sum("s10")+ventS+ventL+ppl+app), t16=(env+sum("s16")+ventS+ventL+ppl+app);
-  var peak=t10>=t16?10:16, coolKW=Math.max(t10,t16)*(1+c.margin)/1000;
+  var peak=t10>=t16?10:16, coolKW=Math.max(t10,t16)*(1+extra)*(1+c.margin)/1000;
   var model=null, idx=-1;
   for(var i=0;i<c.models.length;i++){ if(c.models[i][1]>=coolKW && c.models[i][2]>=heatKW){ model=c.models[i]; idx=i; break; } }
-  return { vol:vol, vent:vent, parts:P, heatKW:heatKW, coolKW:coolKW, peak:peak, model:model, idx:idx,
+  return { vol:vol, hAvg:hAvg, vent:vent, parts:P, heatKW:heatKW, coolKW:coolKW, peak:peak, model:model, idx:idx,
     heat:{ env:envH, vent:ventH, extra:extra },
-    cool:{ env:env, solar:peak===10?sum("s10"):sum("s16"), vent:ventS+ventL, people:ppl, appl:app, t10:t10, t16:t16 } };
+    cool:{ env:env, solar:peak===10?sum("s10"):sum("s16"), vent:ventS+ventL, people:ppl, appl:app, t10:t10, t16:t16, extra:extra } };
 }
 
 /* ---- 計算書PDFの読み取り ---- */
@@ -2827,9 +2829,10 @@ function acCond(){
   var v=function(id){ return +$(id).value; };
   var models=AC_MODELS.map(function(m,i){ return [m[0], +($("acMc"+i)?$("acMc"+i).value:m[1]), +($("acMh"+i)?$("acMh"+i).value:m[2])]; });
   return { tIn:v("acTin"), tOutW:v("acToutW"), tInS:v("acTinS"), tOutS:v("acToutS"), area:v("acArea"), h:v("acH"),
-    fukiA:v("acFukiA"), fukiH:v("acFukiH"), stair:$("acStair").value==="あり", stairA:v("acStairA"), stairH:v("acStairH"),
+    hiA:v("acHiA"), hiH:v("acHiH"),
+    fuki:$("acFuki").value==="あり", fukiA:v("acFukiA"), fukiH:v("acFukiH"), stair:$("acStair").value==="あり", stairA:v("acStairA"),
     ach:v("acAch"), hx:v("acHx")/100, people:v("acPpl"), sens:65, lat:55, appl:v("acAppl"), dx:8, floorK:0.7,
-    fukiK:0.1, stairK:0.1, margin:v("acMargin")/100, models:models };
+    fukiK:v("acFukiK")/100, stairK:v("acStairK")/100, margin:v("acMargin")/100, models:models };
 }
 /* 選んだ候補と手入力の行から、計算に使う部位の一覧を作る */
 function acParts(){
@@ -2890,7 +2893,7 @@ function acUpdate(){
   var f1=function(x){ return (Math.round(x*100)/100).toFixed(2); };
   $("acResult").innerHTML=
     '<div style="font-size:15px">冷房 <b style="font-size:20px;color:var(--brand)">'+f1(r.coolKW)+' kW</b>（'+r.peak+'時がピーク）　／　暖房 <b style="font-size:20px;color:var(--brand)">'+f1(r.heatKW)+' kW</b>　→　おすすめ <b style="font-size:22px;color:var(--accent)">'+(r.model?r.model[0]:"表の範囲外")+'</b>'+(r.model?'（冷房'+r.model[1]+'kW／暖房'+r.model[2]+'kW）':'')+'</div>'+
-    '<div class="hint" style="margin-top:6px">気積 '+r.vol.toFixed(1)+'m³・換気量 '+r.vent.toFixed(1)+'m³/h ／ 冷房の内訳（余裕なし）: 壁・窓・屋根 '+Math.round(r.cool.env)+'W・日射 '+Math.round(r.cool.solar)+'W・換気 '+Math.round(r.cool.vent)+'W・人 '+Math.round(r.cool.people)+'W・家電 '+Math.round(r.cool.appl)+'W ／ 暖房の内訳: 壁・窓・床・屋根 '+Math.round(r.heat.env)+'W・換気 '+Math.round(r.heat.vent)+'W'+(r.heat.extra?'・割増 '+Math.round(r.heat.extra*100)+'%':'')+'</div>';
+    '<div class="hint" style="margin-top:6px">平均天井高 '+r.hAvg.toFixed(2)+'m・気積 '+r.vol.toFixed(1)+'m³・換気量 '+r.vent.toFixed(1)+'m³/h ／ 冷房の内訳（余裕なし）: 壁・窓・屋根 '+Math.round(r.cool.env)+'W・日射 '+Math.round(r.cool.solar)+'W・換気 '+Math.round(r.cool.vent)+'W・人 '+Math.round(r.cool.people)+'W・家電 '+Math.round(r.cool.appl)+'W ／ 暖房の内訳: 壁・窓・床・屋根 '+Math.round(r.heat.env)+'W・換気 '+Math.round(r.heat.vent)+'W'+(r.heat.extra?' ／ 吹抜け・リビング階段の割増 '+Math.round(r.heat.extra*100)+'%（暖房・冷房とも）':'')+'</div>';
   var ok=r.parts.length>0 && r.model; $("useAircon").disabled=!ok; if(!ok) $("useAircon").checked=false;
 }
 async function acTakeFiles(files){
