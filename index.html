@@ -121,9 +121,9 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
   <label class="use"><input type="checkbox" id="useCost"> このページを提案書に入れる <span class="found" id="fCost"></span></label>
   <label class="use" id="extraBox" style="display:none;flex-wrap:wrap;gap:14px">
     <span><input type="checkbox" id="useCover" checked> 表紙の「年間 約○万円」も更新</span>
-    <span><input type="checkbox" id="useDrop" checked> 「真冬の室温降下予測」の図をPDFの図に差し替え <span class="found" id="fDrop"></span></span>
+    <span><input type="checkbox" id="useDrop" checked> 「真冬の室温降下予測」のページをPDFの数字で作り直す <span class="found" id="fDrop"></span></span>
   </label>
-  <div id="dropPrev" style="display:none;margin-bottom:12px"><span class="hint">差し替える図（PDFから切り出し）</span><br><img id="dropImg" style="max-width:100%;border:1px solid var(--line);border-radius:6px"></div>
+  <div id="dropPrev" style="display:none;margin-bottom:12px"><div id="dropData" style="font-size:13px;margin-bottom:6px"></div><span class="hint">PDFの図（数字が読めないときは、この図を画像のまま差し替えます）</span><br><img id="dropImg" style="max-width:100%;border:1px solid var(--line);border-radius:6px"></div>
   <div class="board">
     <h2>帳票から読み取った数字</h2>
     <p class="sub">提案書の光熱費ページの帳票画像を自動で読み取りました。違っていたら直してください（合計は自動で計算します）。</p>
@@ -443,7 +443,7 @@ function findSlide(kind){
     else if(kind==="solar") ok=!s.hidden && s.title.includes("太陽光") && (s.title.includes("回収") || s.text.includes("累計"));
     else if(kind==="aircon") ok=!s.hidden && s.title.includes("エアコン");
     else if(kind==="cost2") ok=!s.hidden && s.text.includes("おトクの内訳");                       // すでに新しい形の光熱費ページ
-    else if(kind==="drop") ok=!s.hidden && (s.title.includes("暖房を止めても") || s.text.includes("室温降下")) && s.doc && bigPic(s);
+    else if(kind==="drop") ok=!s.hidden && (s.title.includes("暖房を止めても") || s.text.includes("室温降下")) && !!s.doc;
     else if(kind==="room") ok=s.title.includes("室温") && !s.text.includes("健康");
     else ok=s.text.includes("健康リスク");
     if(ok) hits.push([s.hidden?1:0,i]);
@@ -459,6 +459,7 @@ function isKind(s,kind){
   if(kind==="health") return s.text.includes("健康リスク");
   if(kind==="aircon") return s.title.includes("エアコン");
   if(kind==="solar") return s.title.includes("太陽光") && (s.title.includes("回収") || s.text.includes("累計"));
+  if(kind==="drop") return s.title.includes("暖房を止めても") || s.text.includes("室温降下");
   return false;
 }
 /* 差し替える元のページ以外で、同じ種類の「非表示のページ」を削除する → 元のページの新しい位置を返す */
@@ -477,10 +478,9 @@ function guessUA(){ for(const s of DECKX.slides){ const m=s.text.match(/UA値\s*
 async function picBlob(sl,p){ const t=resolve(sl.path,sl.rels[p.rid].target); return await DECKX.zip.file(t).async("blob"); }
 
 /* ---- 色 ---- */
-function palette(main){
-  if(main==="D95200") return {main,solar:"D95200",solarTxt:"B34700",light:"FDF4EC",solarLight:"FEF0E3",line:"F2DCCB",hi:"D95200"};   // 南海不動産版（オレンジ）
-  if(main==="3962AD") return {main,solar:"009FB8",solarTxt:"007F93",light:"EFF3FA",solarLight:"E8F6F9",line:"D7DFEC",hi:"0089A3"};
-  return {main,solar:"04988A",solarTxt:"04786C",light:"F0F6F4",solarLight:"E6F4F1",line:"D6E2DD",hi:"04988A"};
+/* 色は常に標準の緑（会社別の色は、できたファイルに別の工程でかける：提案書_会社別カスタム_*.py） */
+function palette(){
+  return {main:"045D53",solar:"04988A",solarTxt:"04786C",light:"F0F6F4",solarLight:"E6F4F1",line:"D6E2DD",hi:"04988A"};
 }
 
 /* ---- 図形を XML で組み立てる ---- */
@@ -793,7 +793,7 @@ function buildHealth(d){
 /* ===== 「暖房を止めても…」ページの画像を、PDFから切り出した画像に差し替える ===== */
 function replaceDropImage(bytes,w,h){
   const idx=findSlide("drop"); if(idx==null) return null;
-  const sl=DECKX.slides[idx], p=bigPic(sl);
+  const sl=DECKX.slides[idx], p=bigPic(sl); if(!p) return null;
   const n=++DECKX.newCount, media=freePart(k=>`ppt/media/teian_drop${k}.png`);
   DECKX.zip.file(media,bytes);
   let k=1; while(sl.rels["rIdD"+k]) k++; const nr="rIdD"+k;   // このページでまだ使っていない番号
@@ -808,6 +808,51 @@ function replaceDropImage(bytes,w,h){
   sl.dirty=true;
   return idx;
 }
+/* ===== 室温降下予測のページ（ホームズ君「真冬の朝7時の室温比較」の数字から） =====
+   d: rooms[{name, cmp(比較プラン=省エネ基準), des(設計プラン=本プラン)}], out(朝7時の外気温) */
+function buildDrop(d){
+  const pal=palette(), MAIN=pal.main, ORANGE="E8862E", GRAY="A3A7AD";
+  const oldIdx=purgeHidden("drop",findSlide("drop")), anchor=oldIdx!=null?oldIdx:findSlide("health");
+  const old=oldIdx!=null?DECKX.slides[oldIdx]:null, b=new SlideBuilder(), f1=v=>v.toFixed(1);
+  headerFrom(b,headerSource(old),{kicker:"03｜暮らしのメリット",
+    titleParts:[["暖房を止めても、","262626"],["朝まで暖かさが続く家",pal.hi]],
+    lead:"高断熱だから室温の低下がゆるやか。夜間・早朝の暖房費も抑えられます。", page:old?pageOf(old):""});
+  // 左: 朝7時の室温（部屋ごと）
+  const LX=1.27, LY=4.08, LW=14.86, LH=9.25, n=d.rooms.length;
+  b.rect(LX,LY,LW,LH,"FFFFFF",pal.line);
+  b.label(LX+0.5,LY+0.25,LW-1.0,0.85,[["朝7時の室温",13,"262626",true],["（0時に暖房を止めて7時間後）",9,"595959",false]]);
+  [["省エネ基準の住まい",GRAY],["本プラン",MAIN]].forEach(([nm,col],i)=>{ const lx=LX+0.5+i*4.6; b.rect(lx,LY+1.3,0.42,0.3,col); b.label(lx+0.55,LY+1.17,4.0,0.58,[[nm,9,"404040",false]]); });
+  const BX=LX+3.2, BW=8.0, vmax=Math.max(15,Math.ceil((Math.max(...d.rooms.map(r=>r.des))+1)/5)*5), rowH=Math.min(2.3,(LH-2.4)/n);
+  d.rooms.forEach((r,i)=>{
+    const y=LY+2.25+i*rowH;
+    b.label(LX+0.5,y,2.6,1.55,[[r.name,12,"262626",true]]);
+    [[r.cmp,GRAY,"6B7076",10,false],[r.des,MAIN,MAIN,11,true]].forEach(([v,col,tc,sz,bold],k)=>{
+      const yy=y+0.11+k*0.75, w=Math.max(0.05,BW*Math.max(0,v)/vmax);
+      b.rect(BX,yy,w,0.58,col);
+      b.label(BX+w+0.2,yy-0.08,2.0,0.75,[[f1(v),sz,tc,bold],["℃",8,tc,bold]]);
+    });
+    const df=r.des-r.cmp;
+    b.shape(LX+LW-2.3,y+0.3,1.9,0.92,{geom:"roundRect",adj:50000,fill:ORANGE,paras:b.para([[(df>=0?"+":"−")+f1(Math.abs(df)),12,"FFFFFF",true],["℃",8,"FFFFFF",true]],"ctr"),wrap:false});
+  });
+  // 右: 暖房の条件と外気
+  const RX=LX+LW+0.64, RW=25.4-1.27-RX;
+  b.rect(RX,LY,RW,LH,pal.light);
+  b.label(RX+0.5,LY+0.33,RW-1.0,0.72,[["暖房の条件",9,"595959",true]]);
+  b.shape(RX+0.5,LY+1.17,RW-1.0,0.92,{geom:"roundRect",adj:30000,fill:"FFFFFF",paras:b.para([["0時",10,MAIN,true],["  暖房を止める（設定20℃）",9,"404040",false]],"ctr"),wrap:false});
+  b.shape(RX+RW/2-0.31,LY+2.22,0.62,0.56,{geom:"downArrow",fill:ORANGE});
+  b.shape(RX+0.5,LY+2.92,RW-1.0,0.92,{geom:"roundRect",adj:30000,fill:"FFFFFF",paras:b.para([["朝7時",10,MAIN,true],["  暖房なしで7時間",9,"404040",false]],"ctr"),wrap:false});
+  const minDf=Math.min(...d.rooms.map(r=>r.des-r.cmp));
+  if(d.out!=null){
+    b.label(RX+0.5,LY+4.25,RW-1.0,0.72,[["朝7時の外気",9,"595959",true]]);
+    b.label(RX+0.5,LY+4.95,RW-1.0,1.33,[[(d.out<0?"−":"")+f1(Math.abs(d.out)),26,"4F5459",true],["℃",12,"4F5459",true]],"ctr");
+  }
+  b.shape(RX+0.5,LY+6.6,RW-1.0,2.2,{txBox:true,anchor:"t",paras:
+    b.para([[d.out!=null&&d.out<0?"外は氷点下でも、":"暖房を止めても、",10.5,"262626",true]])+
+    b.para([[minDf>0?`どの部屋も${f1(minDf)}℃以上あたたかい`:"省エネ基準の住まいより、あたたかさが続きます",10.5,ORANGE,true]])});
+  b.label(1.27,13.5,22.86,0.56,[["※ ホームズ君「真冬の室温降下予測」より。真冬に暖房（設定20℃）を0時まで運転し、止めた後の各部屋の室温を断熱性能から予測した比較です。数値はプランにより異なります。",8,"7C8288",false]]);
+  return insertSlide(b,oldIdx,anchor,{title:"室温降下予測",text:"室温降下"});
+}
+
 function updateCoverAmount(total){
   // 表紙の「年間 約16.8万円」。文字が「約」「16.8」「万円」のように分かれて入っていることがあるので、段落ごとに見る
   const sl=DECKX.slides[0]; if(!sl||!sl.doc) return false;
@@ -2231,7 +2276,7 @@ async function readHomesPdf(file){
   const rows=[];
   items.slice().sort((a,b)=>a.y-b.y).forEach(it=>{ const r=rows[rows.length-1]; if(r && Math.abs(r.y-it.y)<2.5) r.items.push(it); else rows.push({y:it.y,items:[it]}); });
   rows.forEach(r=>r.items.sort((a,b)=>a.x-b.x));
-  const out={file:file.name, building:"", cost:null, unit:{}, drop:null};
+  const out={file:file.name, building:"", cost:null, unit:{}, drop:null, dropData:null};
   const bRow=rows.find(r=>r.items.some(i=>i.t.startsWith("建物名")));   // 「建物名：○○株式会社」「○○市○○1号地」のように分かれていることがある
   if(bRow){ const k=bRow.items.findIndex(i=>i.t.startsWith("建物名")); out.building=bRow.items.slice(k).map(i=>i.t).join(" ").replace(/^建物名[:：]\s*/,""); }
   // 光熱費【設備別・年間】: 「比較プラン」「設計プラン」「差額」で始まり、数字が8つ並ぶ最初の行
@@ -2269,6 +2314,22 @@ async function readHomesPdf(file){
     const blob=await new Promise(r=>cut.toBlob(r,"image/png"));
     out.drop={bytes:new Uint8Array(await blob.arrayBuffer()), w:cut.width, h:cut.height, url:URL.createObjectURL(blob)};
   }
+  // 「真冬の朝7時の室温比較」の棒グラフの数字（部屋ごとに 比較プラン／設計プラン）と外気温を読む
+  if(head){
+    const lab=items.find(i=>i.t.includes("朝7時の室温比較")||i.t.includes("朝７時の室温比較"));
+    if(lab){
+      const isNum=t=>/^-?\d+(\.\d)?$/.test(t);
+      // いちばん下の行の、数字でない名前（LDK・洋室・洗面所…）＝部屋名。グラフの右側（見出しより右）だけ
+      const area=items.filter(i=>i.y>lab.y && i.x>lab.x-20 && i.x<lab.x+190);
+      const nameRowY=Math.max(...area.filter(i=>!isNum(i.t)&&!/℃|\[|外気/.test(i.t)).map(i=>i.y));
+      const names=area.filter(i=>Math.abs(i.y-nameRowY)<3 && !isNum(i.t)).sort((a,b)=>a.x-b.x);
+      const vals=area.filter(i=>isNum(i.t) && i.y<nameRowY-5 && i.x>names[0].x-25);
+      const rooms=names.map(n=>{ const v=vals.filter(i=>Math.abs(i.x+6-(n.x+6))<22).sort((a,b)=>(a.x-b.x)||(+a.t-+b.t));
+        return v.length===2?{name:n.t, cmp:+v[0].t, des:+v[1].t}:null; });
+      const og=items.find(i=>/^-?\d+(\.\d)?℃$/.test(i.t) && i.y>lab.y);
+      if(rooms.length && rooms.every(Boolean)) out.dropData={rooms, out:og?parseFloat(og.t):null};
+    }
+  }
   return out;
 }
 
@@ -2288,7 +2349,10 @@ function applyPdf(){
     if(DECKFILE){ $("useCost").disabled=false; $("useCost").checked=true; $("tsCost").textContent="PDF"; }
   }
   $("extraBox").style.display="flex";
-  if(PDFDATA.drop){ $("dropPrev").style.display="block"; $("dropImg").src=PDFDATA.drop.url; }
+  if(PDFDATA.drop){ $("dropPrev").style.display="block"; $("dropImg").src=PDFDATA.drop.url;
+    var dd=PDFDATA.dropData;
+    $("dropData").innerHTML=dd?'<b>朝7時の室温</b>（比較プラン → 設計プラン）　'+dd.rooms.map(function(r){ return r.name+' '+r.cmp.toFixed(1)+' → <b>'+r.des.toFixed(1)+'</b>℃'; }).join('　／　')+(dd.out!=null?'　外気 '+dd.out.toFixed(1)+'℃':'')+' <span class="ok">✔ この数字でページを図形で作ります</span>'
+      :'<span class="ng">朝7時の室温の数字が読めませんでした → 図を画像のまま差し替えます</span>'; }
   if(DECKFILE){ var di=findSlide("drop"); $("fDrop").textContent=di!=null?"（提案書の"+(di+1)+"ページ目）":"（該当ページなし）"; $("useDrop").disabled=di==null||!PDFDATA.drop; if(di==null) $("useDrop").checked=false; }
 }
 (function(){
@@ -2886,7 +2950,9 @@ $("buildBtn").onclick=async function(){
     var made=[];
     if(doCost){ buildCost(COSTD); made.push("光熱費");
       if(PDFDATA && $("useCover").checked && updateCoverAmount(COSTD.cmp_total-COSTD.des_total)) made.push("表紙の金額"); }
-    if(PDFDATA && PDFDATA.drop && $("useDrop").checked && replaceDropImage(PDFDATA.drop.bytes,PDFDATA.drop.w,PDFDATA.drop.h)!=null) made.push("室温降下予測の図");
+    if(PDFDATA && PDFDATA.drop && $("useDrop").checked){
+      if(PDFDATA.dropData){ buildDrop(PDFDATA.dropData); made.push("室温降下予測"); }
+      else if(replaceDropImage(PDFDATA.drop.bytes,PDFDATA.drop.w,PDFDATA.drop.h)!=null) made.push("室温降下予測の図"); }
     if(doRoom){
       var sd=await computeSides();
       await buildRoom({ images:{F1L:await sideImage(sd.F1.left),F1R:await sideImage(sd.F1.right),F2L:await sideImage(sd.F2.left),F2R:await sideImage(sd.F2.right)},
