@@ -112,6 +112,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
   <div class="tab" data-tab="room">室温<span class="st" id="tsRoom"></span></div>
   <div class="tab" data-tab="health">健康評価<span class="st" id="tsHealth"></span></div>
   <div class="tab" data-tab="solar">太陽光<span class="st" id="tsSolar"></span></div>
+  <div class="tab" data-tab="aircon">エアコン選定<span class="st" id="tsAircon"></span></div>
   <div class="tab" data-tab="out">できあがり</div>
 </div>
 
@@ -264,6 +265,50 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
   </div>
 </section>
 
+<!-- ============ エアコン選定 ============ -->
+<section class="pane" id="pane-aircon">
+  <label class="use"><input type="checkbox" id="useAircon"> このページを提案書に入れる <span class="found" id="fAircon"></span></label>
+  <div class="board">
+    <h2>1. ホームズ君の計算書PDFを入れる</h2>
+    <p class="sub">「断熱等性能等級」の計算書（外皮面積計算表が入っているもの）と、「一次エネルギー消費量算定条件（概要版）」を、まとめてドラッグ。壁の区画・窓・屋根の寸法とU値・η値、LDK（主たる居室）の床面積を読み取ります。</p>
+    <div id="acDrop" class="slotBox" style="padding:20px 8px">計算書のPDFをここにドラッグ／クリックして選択（複数可）<input type="file" id="acIn" accept=".pdf" multiple style="display:none"></div>
+    <div id="acNote" style="margin-top:8px;font-size:13px"></div>
+  </div>
+  <div class="board" id="acCondBox">
+    <h2>2. 条件</h2>
+    <p class="sub">計算書に載っていないもの（天井高・吹抜け・リビング階段・換気の熱交換）は、ここで入れます。地域区分 <b id="acRegion">—</b></p>
+    <table>
+      <tr><td>LDKの床面積</td><td><input type="number" step="0.01" id="acArea" value="0" style="width:90px"> ㎡ <label class="hint"><input type="checkbox" id="acFloorOn" checked> 床から逃げる熱を入れる（1階のLDK）</label></td>
+          <td>天井高</td><td><input type="number" step="0.1" id="acH" value="2.4" style="width:70px"> m</td></tr>
+      <tr><td>冬 室温／外気温</td><td><input type="number" id="acTin" value="20" style="width:60px"> ℃ ／ <input type="number" id="acToutW" value="0" style="width:60px"> ℃ <span class="hint">（地域区分から自動）</span></td>
+          <td>夏 室温／外気温</td><td><input type="number" id="acTinS" value="27" style="width:60px"> ℃ ／ <input type="number" id="acToutS" value="34" style="width:60px"> ℃</td></tr>
+      <tr><td>吹抜けの面積／高さ</td><td><input type="number" step="0.1" id="acFukiA" value="0" style="width:70px"> ㎡ ／ <input type="number" step="0.1" id="acFukiH" value="5" style="width:60px"> m</td>
+          <td>リビング階段</td><td><select id="acStair"><option>なし</option><option>あり</option></select> つながる2階 <input type="number" step="0.1" id="acStairA" value="0" style="width:60px"> ㎡・天井高 <input type="number" step="0.1" id="acStairH" value="2.4" style="width:56px"> m</td></tr>
+      <tr><td>換気回数／熱交換</td><td><input type="number" step="0.1" id="acAch" value="0.5" style="width:60px"> 回/h ／ 熱交換効率 <input type="number" id="acHx" value="0" style="width:56px"> % <span class="hint">（熱交換なしは0）</span></td>
+          <td>人数／家電の発熱</td><td><input type="number" id="acPpl" value="4" style="width:56px"> 人 ／ <input type="number" id="acAppl" value="400" style="width:70px"> W</td></tr>
+      <tr><td>余裕率</td><td><input type="number" id="acMargin" value="30" style="width:60px"> %</td>
+          <td>U値（計算書から）</td><td>外壁 <input type="number" step="0.01" id="acUwall" value="0.41" style="width:56px"> 屋根 <input type="number" step="0.01" id="acUroof" value="0.23" style="width:56px"> 天井 <input type="number" step="0.01" id="acUceil" value="0.17" style="width:56px"> 床 <input type="number" step="0.01" id="acUfloor" value="0.30" style="width:56px"></td></tr>
+    </table>
+  </div>
+  <div class="board">
+    <h2>3. LDKの壁・窓・屋根を選ぶ</h2>
+    <p class="sub">平面図を見ながら、LDKに面する外壁の区画・窓・屋根（天井）にチェックを付けます。区画の一部だけがLDKのときは「使う幅」を直します（そのときは、その区画のうちLDKの窓だけを差し引きます）。吹抜けの高窓や、リビング階段でつながる2階の部分は「区分」を変えて選びます。</p>
+    <select id="acPlanSel" style="margin-bottom:6px"></select>
+    <div style="overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:6px;margin-bottom:12px"><canvas id="acPlan"></canvas></div>
+    <b>外壁の区画</b><div id="acWalls" style="margin:4px 0 12px"></div>
+    <b>窓</b><div id="acWins" style="margin:4px 0 12px"></div>
+    <b>屋根・天井</b><div id="acRoofs" style="margin:4px 0 12px"></div>
+    <b>手入力の部位</b> <span class="hint">（計算書で拾えないもの・面積を直接入れたいもの）</span> <button class="sub2" id="acAddRow">＋行を足す</button><div id="acRows" style="margin-top:4px"></div>
+  </div>
+  <div class="board">
+    <h2>4. 結果</h2>
+    <div id="acResult"></div>
+    <div style="margin-top:12px"><b>ホームズ君の最大負荷による機種</b> <span class="hint">（ページで比べるときだけ。熱負荷計算結果表の値）</span><br>
+      冷房 <input type="number" step="0.1" id="acHomesC" style="width:70px"> kW　暖房 <input type="number" step="0.1" id="acHomesH" style="width:70px"> kW　機種 <input type="text" id="acHomesM" placeholder="例: 18畳用" style="width:110px"></div>
+    <details style="margin-top:10px"><summary class="hint">機種表（暖房の定格はシリーズで違うので、使う機種のカタログ値に直せます）</summary><div id="acModels"></div></details>
+  </div>
+</section>
+
 <!-- ============ できあがり ============ -->
 <section class="pane" id="pane-out">
   <div id="outbox"><p id="outPath"></p><div id="outImgs"></div></div>
@@ -412,6 +457,7 @@ function findSlide(kind){
     let ok;
     if(kind==="cost") ok=s.title.includes("光熱費") && !s.hidden && s.doc && bigPic(s);
     else if(kind==="solar") ok=!s.hidden && s.title.includes("太陽光") && (s.title.includes("回収") || s.text.includes("累計"));
+    else if(kind==="aircon") ok=!s.hidden && s.title.includes("エアコン");
     else if(kind==="cost2") ok=!s.hidden && s.text.includes("おトクの内訳");                       // すでに新しい形の光熱費ページ
     else if(kind==="drop") ok=!s.hidden && (s.title.includes("暖房を止めても") || s.text.includes("室温降下")) && s.doc && bigPic(s);
     else if(kind==="room") ok=s.title.includes("室温") && !s.text.includes("健康");
@@ -427,6 +473,7 @@ function isKind(s,kind){
   if(kind==="cost") return (s.title.includes("光熱費") && !!bigPic(s)) || s.text.includes("おトクの内訳");
   if(kind==="room") return s.title.includes("室温") && !s.text.includes("健康");
   if(kind==="health") return s.text.includes("健康リスク");
+  if(kind==="aircon") return s.title.includes("エアコン");
   if(kind==="solar") return s.title.includes("太陽光") && (s.title.includes("回収") || s.text.includes("累計"));
   return false;
 }
@@ -866,6 +913,68 @@ function buildSolar(d){
   if(d.kw) b.label(RX+0.4,11.65,RW-0.8,0.45,[["太陽光の容量",9,"595959",false],["  "+kwT+"kW",9,"404040",true]],"l");
   b.label(1.0,13.45,23.4,0.5,[["※ 住宅省エネ性能 光熱費 web提案ツール（国交省 エネルギー消費性能計算プログラムとAPI連携）による試算。売電単価・電気料金・発電量は前提条件により変わります。",7.5,"7C8288",false]]);
   return insertSlide(b,oldIdx,anchor,{title:"太陽光 回収",text:"累計"});
+}
+
+/* ===== エアコン選定ページ（LDKの簡易熱負荷計算） =====
+   d: coolKW, heatKW, model[名前,冷房,暖房], idx, cool{env,solar,vent,people,appl}, heat{env,vent,extra}, margin, area, homes{c,h,m}(任意) */
+function buildAircon(d){
+  const pal=palette(deckTheme()), MAIN=pal.main, ORANGE="E8862E", GRAY="A3A7AD";
+  let oldIdx=purgeHidden("aircon",findSlide("aircon"));
+  const anchor=oldIdx!=null?oldIdx:findSlide("room"), old=oldIdx!=null?DECKX.slides[oldIdx]:null;
+  const b=new SlideBuilder(), jo=Math.round(d.area/1.62*10)/10, mdl=d.model[0];
+  headerFrom(b,headerSource(old),{kicker:"03｜暮らしのメリット",
+    titleParts:[["性能に合わせた、","262626"],["ムダのないエアコン選び",pal.hi]],
+    lead:`LDK（約${jo}畳）に必要な能力を計算すると、${mdl}で足ります。大きすぎる機種を選ばず、初期費用と電気代を抑えます。`,
+    page:old?pageOf(old):""});
+  const f1=v=>(Math.round(v*10)/10).toFixed(1);
+  // 左: 必要な能力と、おすすめの機種
+  b.rect(1.0,4.0,11.6,8.9,"FFFFFF",pal.line); b.rect(1.0,4.0,0.12,0.7,MAIN);
+  b.label(1.45,4.0,11,0.7,[["LDKに必要な能力",13,"262626",true],[`（余裕${Math.round(d.margin*100)}%込み）`,9.5,"595959",false]]);
+  const maxV=Math.max(d.model[1],d.model[2],d.coolKW,d.heatKW)*1.08, BW=6.4, BX=3.2;
+  [["冷房",d.coolKW,d.model[1]],["暖房",d.heatKW,d.model[2]]].forEach(([nm,need,cap],i)=>{
+    const y=5.0+i*1.85;
+    b.label(1.45,y,1.6,0.9,[[nm,12,"404040",true]]);
+    b.rect(BX,y+0.05,BW*cap/maxV,0.35,"E3E7EA");                       // 機種の能力（うすい帯）
+    b.rect(BX,y+0.5,Math.max(BW*need/maxV,0.05),0.35,MAIN);            // 必要な能力
+    b.label(BX+BW*cap/maxV+0.15,y-0.05,2.6,0.5,[[`${mdl} ${f1(cap)}kW`,8.5,"6B7076",false]]);
+    b.label(BX+Math.max(BW*need/maxV,0.05)+0.15,y+0.4,2.6,0.55,[[f1(need),14,MAIN,true],["kW",9,MAIN,true]]);
+  });
+  b.rect(1.45,9.0,10.7,3.55,pal.light);
+  b.label(1.45,9.2,10.7,0.6,[["おすすめのエアコン",11,"404040",true]],"ctr");
+  b.label(1.45,9.85,10.7,1.4,[[mdl,34,MAIN,true]],"ctr");
+  b.label(1.45,11.35,10.7,0.6,[[`冷房 ${f1(d.model[1])}kW ／ 暖房 ${f1(d.model[2])}kW クラス`,11,"404040",false]],"ctr");
+  b.label(1.45,11.9,10.7,0.5,[["冷房・暖房の両方をまかなえる、いちばん小さい機種",8.5,"6B7076",false]],"ctr");
+  // 右上: ホームズ君の最大負荷との比較（入っているときだけ）
+  const X=13.1, W=11.3;
+  let y=4.0;
+  if(d.homes && d.homes.m){
+    b.rect(X,y,W,3.6,"FFFFFF",pal.line); b.rect(X,y,0.12,0.7,MAIN);
+    b.label(X+0.45,y,W-0.6,0.7,[["機種の選び方で、ここまで違います",12,"262626",true]]);
+    b.rect(X+0.45,y+0.9,4.6,2.3,"F3F4F5");
+    b.label(X+0.45,y+1.0,4.6,0.5,[["いちばん負荷が大きい1時間で選ぶと",8.5,"595959",false]],"ctr");
+    b.label(X+0.45,y+1.5,4.6,0.9,[[d.homes.m,22,"80858C",true]],"ctr");
+    if(d.homes.c) b.label(X+0.45,y+2.45,4.6,0.5,[[`冷房 ${f1(d.homes.c)}kW${d.homes.h?` ／ 暖房 ${f1(d.homes.h)}kW`:""}`,8.5,"6B7076",false]],"ctr");
+    b.shape(X+5.25,y+1.75,0.8,0.6,{geom:"rightArrow",fill:ORANGE});
+    b.rect(X+6.25,y+0.9,4.6,2.3,pal.light);
+    b.label(X+6.25,y+1.0,4.6,0.5,[["落ち着いた状態の負荷で選ぶと",8.5,"595959",false]],"ctr");
+    b.label(X+6.25,y+1.5,4.6,0.9,[[mdl,22,MAIN,true]],"ctr");
+    b.label(X+6.25,y+2.45,4.6,0.5,[[`冷房 ${f1(d.coolKW)}kW ／ 暖房 ${f1(d.heatKW)}kW`,8.5,"6B7076",false]],"ctr");
+    y+=3.9;
+  }
+  // 右下: 冷房の内訳（何が熱の元か）
+  const H=12.9-y;
+  b.rect(X,y,W,H,"FFFFFF",pal.line); b.rect(X,y,0.12,0.7,MAIN);
+  b.label(X+0.45,y,W-0.6,0.7,[["夏、LDKに入ってくる熱の内訳",12,"262626",true]]);
+  const items=[["窓からの日射",d.cool.solar,ORANGE],["人",d.cool.people,"D9A05B"],["照明・家電・調理",d.cool.appl,"C9B48A"],["換気（外の空気）",d.cool.vent,"8FB3D9"],["壁・窓・屋根",d.cool.env,MAIN]];
+  const tot=items.reduce((a,x)=>a+x[1],0), rowH=Math.min(0.62,(H-1.1)/items.length), SW=5.6;
+  items.forEach(([nm,v,col],i)=>{
+    const yy=y+0.95+i*rowH;
+    b.label(X+0.45,yy,3.4,rowH,[[nm,9.5,"404040",false]]);
+    b.rect(X+3.9,yy+rowH*0.22,Math.max(SW*v/tot,0.05),rowH*0.56,col);
+    b.label(X+3.9+Math.max(SW*v/tot,0.05)+0.15,yy,2.0,rowH,[[`${Math.round(v/tot*100)}%`,9.5,"404040",true]]);
+  });
+  b.label(1.0,13.15,23.4,0.7,[[`※ 部屋の温度が落ち着いた状態で必要な能力の目安です（立ち上がり・来客などを見込み、余裕${Math.round(d.margin*100)}%を加えています）。外皮計算書の寸法・U値をもとにした簡易計算で、機種の最終決定はメーカーのカタログでご確認ください。`,7.5,"7C8288",false]],"l","t");
+  return insertSlide(b,oldIdx,anchor,{title:"エアコン選び",text:"エアコン"});
 }
 
 </script>
@@ -2557,6 +2666,273 @@ function trimToPlan(cv){
 var _cropSideGap=cropSideGap;
 cropSideGap=function(img,gap,side){ return trimToPlan(_cropSideGap(img,gap,side)); };
 
+/* ===== エアコン選定（LDKの簡易熱負荷計算） =====
+   計算は「LDKエアコン簡易熱負荷計算.xlsx」と同じ式（定常計算：部屋の温度が落ち着いた状態で必要な能力）。
+   入力はホームズ君「断熱等性能等級」計算書PDF（外皮面積計算表・UA値計算）と、
+   「一次エネルギー消費量算定条件（概要版）」PDF（主たる居室の床面積）から読む。
+   どの壁・窓がLDKのものかは平面図が絵なので読めない → 平面図を見ながらチェックで選ぶ。 */
+var AC={ pdf:null, pages:[], walls:[], wins:[], roofs:[], specU:{}, region:null, mainArea:null, rows:[], file:"" };
+
+/* 係数（係数シートと同じ値） */
+var AC_K={
+  ETD:{ "外壁北":5,"外壁東":9,"外壁南":8,"外壁西":11,"屋根・天井水平":20 },
+  SUN10:{ 北:80, 東:450, 南:200, 西:80, 水平:750 },
+  SUN16:{ 北:120, 東:80, 南:150, 西:500, 水平:400 }
+};
+/* 機種表（冷房／暖房の定格 kW）。暖房はシリーズで違うので画面で直せる */
+var AC_MODELS=[["6畳用",2.2,2.5],["8畳用",2.5,2.8],["10畳用",2.8,3.6],["12畳用",3.6,4.2],["14畳用",4.0,5.0],
+  ["18畳用",5.6,6.7],["20畳用",6.3,7.1],["23畳用",7.1,8.5],["26畳用",8.0,9.5],["29畳用",9.0,10.0]];
+/* 冬の外気温（設計用の目安）: 地域区分ごと */
+var AC_WINTER={1:-15,2:-12,3:-8,4:-5,5:-2,6:0,7:2,8:8};
+
+/* 8方位 → 計算で使う4方位。斜めの方位は隣り合う2方位の平均の係数を使う */
+function acDirs(d){ var m={"北東":["北","東"],"南東":["南","東"],"南西":["南","西"],"北西":["北","西"]}; return m[d]||[d]; }
+function acETD(kind,dir,summer){
+  if(kind==="床") return 0;
+  if(kind==="窓") return summer;                       // 窓は 外気−室温（日射は別に計算）
+  if(kind==="屋根・天井") return AC_K.ETD["屋根・天井水平"];
+  var ds=acDirs(dir), v=ds.map(function(x){ return AC_K.ETD["外壁"+x]; }).filter(function(x){ return x!=null; });
+  return v.length? v.reduce(function(a,b){return a+b;},0)/v.length : 0;
+}
+function acSun(table,dir){
+  var ds=acDirs(dir), v=ds.map(function(x){ return table[x]; }).filter(function(x){ return x!=null; });
+  return v.length? v.reduce(function(a,b){return a+b;},0)/v.length : 0;
+}
+
+/* ---- 計算（Excel と同じ式） ---- */
+function acCalc(c,parts){
+  var dW=c.tIn-c.tOutW, dS=c.tOutS-c.tInS;
+  var vol=c.area*c.h + c.fukiA*Math.max(0,c.fukiH-c.h) + (c.stair?c.stairA*c.stairH:0);
+  var vent=vol*c.ach;
+  var P=parts.map(function(p){
+    var heat=p.area*p.U*dW*(p.kind==="床"?c.floorK:1);
+    var cool=(p.kind==="床")?0:p.area*p.U*acETD(p.kind,p.dir,dS);
+    var s10=p.kind==="窓"?p.area*p.eta*p.shade*acSun(AC_K.SUN10,p.dir):0;
+    var s16=p.kind==="窓"?p.area*p.eta*p.shade*acSun(AC_K.SUN16,p.dir):0;
+    return Object.assign({},p,{heat:heat,cool:cool,s10:s10,s16:s16});
+  });
+  var sum=function(k,f){ return P.filter(f||function(){return true;}).reduce(function(a,p){return a+p[k];},0); };
+  var envH=sum("heat"), ventH=0.33*vent*dW*(1-(c.hx||0));
+  var extra=(c.fukiA>0?c.fukiK:0)+(c.stair?c.stairK:0);
+  var heatKW=(envH+ventH)*(1+extra)*(1+c.margin)/1000;
+  var env=sum("cool"), ventS=0.33*vent*dS*(1-(c.hx||0)), ventL=0.83*vent*c.dx, ppl=c.people*(c.sens+c.lat), app=c.appl;
+  var t10=(env+sum("s10")+ventS+ventL+ppl+app), t16=(env+sum("s16")+ventS+ventL+ppl+app);
+  var peak=t10>=t16?10:16, coolKW=Math.max(t10,t16)*(1+c.margin)/1000;
+  var model=null, idx=-1;
+  for(var i=0;i<c.models.length;i++){ if(c.models[i][1]>=coolKW && c.models[i][2]>=heatKW){ model=c.models[i]; idx=i; break; } }
+  return { vol:vol, vent:vent, parts:P, heatKW:heatKW, coolKW:coolKW, peak:peak, model:model, idx:idx,
+    heat:{ env:envH, vent:ventH, extra:extra },
+    cool:{ env:env, solar:peak===10?sum("s10"):sum("s16"), vent:ventS+ventL, people:ppl, appl:app, t10:t10, t16:t16 } };
+}
+
+/* ---- 計算書PDFの読み取り ---- */
+function acTokens(tc){ return tc.items.map(function(i){ return i.str.trim(); }).filter(function(s){ return s; }); }
+var AC_FORM=/^(\d+\.\d+)\s*[×x]\s*(\d+\.\d+)((?:\s*[－\-]\s*#\d+)*)$/;
+async function acReadPdf(file){
+  if(!readHomesPdf.worker) readHomesPdf.worker=URL.createObjectURL(new Blob([document.getElementById("pdfWorkerSrc").textContent],{type:"text/javascript"}));
+  pdfjsLib.GlobalWorkerOptions.workerSrc=readHomesPdf.worker;
+  var pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise, pages=[];
+  for(var n=1;n<=pdf.numPages;n++){ var pg=await pdf.getPage(n); pages.push({n:n, page:pg, t:acTokens(await pg.getTextContent())}); }
+  return {pdf:pdf, pages:pages};
+}
+/* 主たる居室の床面積（概要版） */
+function acMainArea(pages){
+  for(var p of pages){ var t=p.t;
+    for(var i=0;i<t.length;i++) if(/^主たる居室/.test(t[i])){
+      for(var k=i-1;k>=Math.max(0,i-3);k--) if(/^\d+\.\d+$/.test(t[k])) return +t[k];
+    }
+    var j=t.findIndex(function(s){ return /居室分類ごとの床面合計/.test(s); });
+    if(j>=0) for(var k2=j+1;k2<Math.min(t.length,j+6);k2++) if(/^\d+\.\d+$/.test(t[k2])) return +t[k2];
+  }
+  return null;
+}
+function acRegion(pages){
+  for(var p of pages) for(var s of p.t){ var m=s.match(/^([1-8])地域/); if(m) return +m[1]; }
+  return null;
+}
+/* UA値計算ページ: 断熱仕様ごとのU値（屋根・天井・外壁・床） */
+function acSpecU(pages){
+  var u={};
+  for(var p of pages){ var t=p.t; if(!t.some(function(s){ return /熱損失量および冷房期/.test(s); })) continue;
+    for(var i=0;i<t.length;i++){
+      var part=(t[i].match(/^(屋根|天井|外壁|床)$/)||[])[1]; if(!part || u[part]) continue;
+      // その行の「U値 1.00/0.70 部位」の並び: …面積, No, A×U, U, H, 部位
+      // 補正の行（ユニットバスなど。仕様Noが「(1)」）は飛ばし、断熱仕様No（4けた）の行だけを見る
+      if(/^(1\.00|0\.70)$/.test(t[i-1]||"") && /^\d\.\d\d$/.test(t[i-2]||"") && /^\d{4}$/.test(t[i-4]||"")) u[part]=+t[i-2];
+    }
+  }
+  // ドア: 「…U, H, ドア, 方位」の並び。η は計算書の注記どおり 0.034×U
+  for(var p2 of pages){ var t2=p2.t; for(var j=0;j<t2.length;j++) if(t2[j]==="ドア" && /^\d\.\d\d$/.test(t2[j-2]||"") && /^(1\.00|0\.70)$/.test(t2[j-1]||"")){ u.ドア=+t2[j-2]; break; } }
+  return u;
+}
+/* 窓の U値・η値（窓の熱損失量の表） */
+function acWinSpec(pages){
+  var w={};
+  for(var p of pages){ var t=p.t; if(!t.some(function(s){ return /窓の熱損失量/.test(s); })) continue;
+    for(var i=0;i<t.length;i++){ var m=t[i].match(/^#(\d+)$/); if(!m) continue;
+      var end=t.findIndex(function(s,k){ return k>i && /^#\d+$/.test(s); }); if(end<0) end=Math.min(t.length,i+40);
+      var seg=t.slice(i+1,end), d=seg.findIndex(function(s){ return /^\(定\)|^\(計\)|^\(入\)/.test(s); });
+      var eta=null, U=null;
+      if(d>=0){ for(var k=d+1;k<seg.length;k++){ if(eta==null && /^0\.\d{3}$/.test(seg[k])){ eta=+seg[k]; continue; } if(eta!=null && /^\d\.\d\d$/.test(seg[k])){ U=+seg[k]; break; } } }
+      w["#"+m[1]]={U:U, eta:eta};
+    }
+  }
+  return w;
+}
+/* 外壁ページ: 壁の区画（式・面積）と、開口（窓）の寸法 */
+function acWallPages(pages){
+  var walls=[], wins=[];
+  for(var p of pages){ var t=p.t, hd=t.find(function(s){ return /^■外壁＜.+＞$/.test(s); }); if(!hd) continue;
+    var dir=hd.match(/＜(.+)＞/)[1], cut=t.findIndex(function(s){ return /開口面積/.test(s); }); if(cut<0) cut=t.length;
+    var start=t.findIndex(function(s){ return /外壁面積/.test(s); });
+    var pend=null, cls="外壁", fl="1", curDir=dir;
+    for(var i=Math.max(0,start);i<cut;i++){ var s=t[i], f=s.match(AC_FORM);
+      if(/^(北|北東|東|南東|南|南西|西|北西)$/.test(s)){ curDir=s; continue; }
+      if(f){ pend={w:+f[1], h:+f[2], minus:(f[3].match(/#\d+/g)||[]), text:s}; continue; }
+      var m=s.match(/^(外壁|小屋|TL)?([A-Z]{1,2}\d{1,2})$/);
+      if(/^(外壁|小屋|TL)$/.test(s)){ cls=s; continue; }
+      if(/^[12]$/.test(s)){ fl=s; continue; }
+      if(m && pend){ if(m[1]) cls=m[1]; var area=+(t[i+1]||0);
+        walls.push({id:"W"+walls.length, sec:m[2], dir:curDir, floor:fl, cls:cls, w:pend.w, h:pend.h, minus:pend.minus, text:pend.text, area:area||pend.w*pend.h});
+        pend=null; }
+    }
+    var pw=null, wfl="1";
+    for(var j=cut;j<t.length;j++){ var s2=t[j], f2=s2.match(/^(\d+\.\d+)\s*[×x]\s*(\d+\.\d+)$/);
+      if(f2){ pw={w:+f2[1],h:+f2[2]}; continue; }
+      if(/^[12]$/.test(s2)){ wfl=s2; continue; }
+      var mm=s2.match(/^#(\d+)$/);
+      if(mm && pw){ var ar=+(t[j+1]||0); wins.push({id:"#"+mm[1], dir:dir, floor:wfl, w:pw.w, h:pw.h, area:ar||pw.w*pw.h}); pw=null; }
+    }
+  }
+  return {walls:walls, wins:wins};
+}
+/* 屋根・天井ページ */
+function acRoofPage(pages){
+  var out=[];
+  for(var p of pages){ var t=p.t; if(!t.some(function(s){ return /屋根・天井面積/.test(s); })) continue;
+    var stop=t.findIndex(function(s){ return /^■床|土間床/.test(s); }); if(stop<0) stop=t.length;
+    var pend=null, part="屋根", fl="1";
+    for(var i=0;i<stop;i++){ var s=t[i], f=s.match(/^(\d+\.\d+)\s*[×x]\s*(\d+\.\d+)(÷2)?$/);
+      if(f){ pend={text:s, a:(+f[1])*(+f[2])/(f[3]?2:1)}; continue; }
+      if(/^(屋根|天井)$/.test(s)){ part=s; continue; }
+      if(/^[12]$/.test(s)){ fl=s; continue; }
+      if(/^[A-Z]$/.test(s) && pend){ var ar=+(t[i+1]||0); out.push({id:"R"+out.length, sec:s, part:part, floor:fl, text:pend.text, area:ar||pend.a}); pend=null; }
+    }
+  }
+  return out;
+}
+
+/* ---- 画面 ---- */
+function acCond(){
+  var v=function(id){ return +$(id).value; };
+  var models=AC_MODELS.map(function(m,i){ return [m[0], +($("acMc"+i)?$("acMc"+i).value:m[1]), +($("acMh"+i)?$("acMh"+i).value:m[2])]; });
+  return { tIn:v("acTin"), tOutW:v("acToutW"), tInS:v("acTinS"), tOutS:v("acToutS"), area:v("acArea"), h:v("acH"),
+    fukiA:v("acFukiA"), fukiH:v("acFukiH"), stair:$("acStair").value==="あり", stairA:v("acStairA"), stairH:v("acStairH"),
+    ach:v("acAch"), hx:v("acHx")/100, people:v("acPpl"), sens:65, lat:55, appl:v("acAppl"), dx:8, floorK:0.7,
+    fukiK:0.1, stairK:0.1, margin:v("acMargin")/100, models:models };
+}
+/* 選んだ候補と手入力の行から、計算に使う部位の一覧を作る */
+function acParts(){
+  var parts=[], U=AC.specU, gu=function(k,def){ return U[k]!=null?U[k]:def; };
+  var winChecked={}; AC.wins.forEach(function(w){ var cb=$("acWin_"+w.id.slice(1)); if(cb&&cb.checked) winChecked[w.id]=w; });
+  AC.walls.forEach(function(w){
+    var cb=$("acWall_"+w.id); if(!cb||!cb.checked) return;
+    var useW=+$("acWallW_"+w.id).value||w.w, full=Math.abs(useW-w.w)<0.001;
+    // 区画を全部使うときは計算書の面積（窓を全部除いた値）。一部だけのときは「使う幅×高さ − その区画のうちLDKとして選んだ窓」
+    var area= full ? w.area : useW*w.h - w.minus.reduce(function(a,id){ return a+(winChecked[id]?winChecked[id].area:0); },0);
+    parts.push({kind:"外壁", dir:w.dir, area:area, U:+$("acUwall").value||gu("外壁",0.41), eta:0, shade:1, cls:$("acWallC_"+w.id).value, label:w.sec+"（"+w.floor+"階）"});
+  });
+  AC.wins.forEach(function(w){ if(!winChecked[w.id]) return;
+    parts.push({kind:"窓", dir:w.dir, area:w.area, U:+$("acWinU_"+w.id.slice(1)).value, eta:+$("acWinE_"+w.id.slice(1)).value, shade:+$("acWinS_"+w.id.slice(1)).value||1, cls:$("acWinC_"+w.id.slice(1)).value, label:w.id}); });
+  AC.roofs.forEach(function(r){ var cb=$("acRoof_"+r.id); if(!cb||!cb.checked) return;
+    parts.push({kind:"屋根・天井", dir:"水平", area:r.area, U:r.part==="屋根"?(+$("acUroof").value||gu("屋根",0.23)):(+$("acUceil").value||gu("天井",0.17)), eta:0, shade:1, cls:$("acRoofC_"+r.id).value, label:r.part+r.sec}); });
+  if($("acFloorOn").checked) parts.push({kind:"床", dir:"-", area:+$("acArea").value, U:+$("acUfloor").value||gu("床",0.30), eta:0, shade:1, cls:"LDK", label:"床"});
+  AC.rows.forEach(function(r,i){ if(!(r.area>0)) return; parts.push(Object.assign({label:"手入力"+(i+1)},r)); });
+  return parts;
+}
+function acClsSel(id,val){ return '<select id="'+id+'">'+["LDK","吹抜け","2階（階段）"].map(function(c){ return '<option'+(c===val?' selected':'')+'>'+c+'</option>'; }).join("")+'</select>'; }
+function acDrawLists(){
+  var ws=AC.wins.reduce(function(o,w){ o[w.id]=w; return o; },{}), sp=acWinSpecCache||{};
+  var h='<table><tr><th>LDK</th><th>方位</th><th>階</th><th>区画</th><th>計算書の式</th><th>面積</th><th>使う幅 (m)</th><th>区分</th></tr>';
+  AC.walls.forEach(function(w){ h+='<tr><td><input type="checkbox" id="acWall_'+w.id+'"></td><td>'+w.dir+'</td><td>'+w.floor+'</td><td>'+w.sec+(w.cls!=="外壁"?"（"+w.cls+"）":"")+'</td><td>'+w.text+'</td><td>'+w.area.toFixed(2)+'㎡</td><td><input type="number" step="0.001" id="acWallW_'+w.id+'" value="'+w.w+'" style="width:80px"> <span class="hint">／'+w.w+'</span></td><td>'+acClsSel("acWallC_"+w.id,"LDK")+'</td></tr>'; });
+  $("acWalls").innerHTML=AC.walls.length?h+'</table>':'<span class="hint">外壁の区画が読み取れませんでした。下の「手入力の部位」に入れてください。</span>';
+  h='<table><tr><th>LDK</th><th>窓</th><th>方位</th><th>階</th><th>寸法</th><th>面積</th><th>U値</th><th>η値</th><th>外部遮蔽</th><th>区分</th></tr>';
+  AC.wins.forEach(function(w){ var k=w.id.slice(1), s=sp[w.id]||{};
+    if(s.U==null && AC.specU.ドア!=null){ s={U:AC.specU.ドア, eta:Math.round(0.034*AC.specU.ドア*1000)/1000}; w.door=true; }   // 窓の表にない開口＝ドア
+    h+='<tr><td><input type="checkbox" id="acWin_'+k+'"></td><td>'+w.id+(w.door?'（ドア）':'')+'</td><td>'+w.dir+'</td><td>'+w.floor+'</td><td>'+w.w+'×'+w.h+'</td><td>'+w.area.toFixed(2)+'㎡</td><td><input type="number" step="0.01" id="acWinU_'+k+'" value="'+(s.U||1.31)+'" style="width:64px"></td><td><input type="number" step="0.001" id="acWinE_'+k+'" value="'+(s.eta||0.317)+'" style="width:70px"></td><td><input type="number" step="0.1" id="acWinS_'+k+'" value="1" style="width:56px"></td><td>'+acClsSel("acWinC_"+k,"LDK")+'</td></tr>'; });
+  $("acWins").innerHTML=AC.wins.length?h+'</table>':'<span class="hint">窓が読み取れませんでした。</span>';
+  h='<table><tr><th>LDK</th><th>部位</th><th>階</th><th>区画</th><th>計算書の式</th><th>面積</th><th>区分</th></tr>';
+  AC.roofs.forEach(function(r){ h+='<tr><td><input type="checkbox" id="acRoof_'+r.id+'"></td><td>'+r.part+'</td><td>'+r.floor+'</td><td>'+r.sec+'</td><td>'+r.text+'</td><td>'+r.area.toFixed(2)+'㎡</td><td>'+acClsSel("acRoofC_"+r.id,"LDK")+'</td></tr>'; });
+  $("acRoofs").innerHTML=AC.roofs.length?h+'</table>':'<span class="hint">屋根・天井の区画が読み取れませんでした。</span>';
+  document.querySelectorAll("#acWalls input, #acWalls select, #acWins input, #acWins select, #acRoofs input, #acRoofs select").forEach(function(e){ e.oninput=e.onchange=acUpdate; });
+  acUpdate();
+}
+var acWinSpecCache={};
+function acDrawRows(){
+  var h='<table><tr><th>部位</th><th>方位</th><th>面積 (㎡)</th><th>U値</th><th>η値（窓）</th><th>外部遮蔽</th><th>区分</th><th></th></tr>';
+  AC.rows.forEach(function(r,i){
+    h+='<tr><td><select data-i="'+i+'" data-k="kind">'+["外壁","窓","屋根・天井","床"].map(function(x){ return '<option'+(x===r.kind?' selected':'')+'>'+x+'</option>'; }).join("")+'</select></td>'+
+      '<td><select data-i="'+i+'" data-k="dir">'+["北","北東","東","南東","南","南西","西","北西","水平","-"].map(function(x){ return '<option'+(x===r.dir?' selected':'')+'>'+x+'</option>'; }).join("")+'</select></td>'+
+      ["area","U","eta","shade"].map(function(k){ return '<td><input type="number" step="0.01" data-i="'+i+'" data-k="'+k+'" value="'+(r[k]==null?"":r[k])+'" style="width:76px"></td>'; }).join("")+
+      '<td><select data-i="'+i+'" data-k="cls">'+["LDK","吹抜け","2階（階段）"].map(function(x){ return '<option'+(x===r.cls?' selected':'')+'>'+x+'</option>'; }).join("")+'</select></td><td><button class="sub2" data-del="'+i+'">削除</button></td></tr>'; });
+  $("acRows").innerHTML=h+'</table>';
+  $("acRows").querySelectorAll("[data-k]").forEach(function(e){ e.oninput=e.onchange=function(){ var r=AC.rows[+e.dataset.i]; r[e.dataset.k]=(e.tagName==="SELECT")?e.value:(+e.value||0); acUpdate(); }; });
+  $("acRows").querySelectorAll("[data-del]").forEach(function(b){ b.onclick=function(){ AC.rows.splice(+b.dataset.del,1); acDrawRows(); acUpdate(); }; });
+}
+function acDrawModels(){
+  var h='<table><tr><th>機種</th><th>冷房 定格 (kW)</th><th>暖房 定格 (kW)</th></tr>';
+  AC_MODELS.forEach(function(m,i){ h+='<tr><td>'+m[0]+'</td><td><input type="number" step="0.1" id="acMc'+i+'" value="'+m[1]+'" style="width:70px"></td><td><input type="number" step="0.1" id="acMh'+i+'" value="'+m[2]+'" style="width:70px"></td></tr>'; });
+  $("acModels").innerHTML=h+'</table>';
+}
+var AC_LAST=null;
+function acUpdate(){
+  var c=acCond(), r=acCalc(c,acParts()); AC_LAST={c:c,r:r};
+  var f1=function(x){ return (Math.round(x*100)/100).toFixed(2); };
+  $("acResult").innerHTML=
+    '<div style="font-size:15px">冷房 <b style="font-size:20px;color:var(--brand)">'+f1(r.coolKW)+' kW</b>（'+r.peak+'時がピーク）　／　暖房 <b style="font-size:20px;color:var(--brand)">'+f1(r.heatKW)+' kW</b>　→　おすすめ <b style="font-size:22px;color:var(--accent)">'+(r.model?r.model[0]:"表の範囲外")+'</b>'+(r.model?'（冷房'+r.model[1]+'kW／暖房'+r.model[2]+'kW）':'')+'</div>'+
+    '<div class="hint" style="margin-top:6px">気積 '+r.vol.toFixed(1)+'m³・換気量 '+r.vent.toFixed(1)+'m³/h ／ 冷房の内訳（余裕なし）: 壁・窓・屋根 '+Math.round(r.cool.env)+'W・日射 '+Math.round(r.cool.solar)+'W・換気 '+Math.round(r.cool.vent)+'W・人 '+Math.round(r.cool.people)+'W・家電 '+Math.round(r.cool.appl)+'W ／ 暖房の内訳: 壁・窓・床・屋根 '+Math.round(r.heat.env)+'W・換気 '+Math.round(r.heat.vent)+'W'+(r.heat.extra?'・割増 '+Math.round(r.heat.extra*100)+'%':'')+'</div>';
+  var ok=r.parts.length>0 && r.model; $("useAircon").disabled=!ok; if(!ok) $("useAircon").checked=false;
+}
+async function acTakeFiles(files){
+  for(var f of files){
+    if(!/\.pdf$/i.test(f.name)) continue;
+    $("acNote").textContent=f.name+" を読み込み中…";
+    var d=await acReadPdf(f), wp=acWallPages(d.pages), roofs=acRoofPage(d.pages), area=acMainArea(d.pages), reg=acRegion(d.pages), su=acSpecU(d.pages), wsp=acWinSpec(d.pages);
+    if(wp.walls.length||wp.wins.length){ AC.pdf=d.pdf; AC.pages=d.pages; AC.walls=wp.walls; AC.wins=wp.wins; AC.roofs=roofs; AC.file=f.name; acWinSpecCache=wsp; AC.specU=Object.assign(AC.specU,su); acPlanPages(); }
+    if(area){ AC.mainArea=area; $("acArea").value=area; }
+    if(reg){ AC.region=reg; if(AC_WINTER[reg]!=null) $("acToutW").value=AC_WINTER[reg]; $("acRegion").textContent=reg+"地域"; }
+    ["外壁","屋根","天井","床"].forEach(function(k){ var id={外壁:"acUwall",屋根:"acUroof",天井:"acUceil",床:"acUfloor"}[k]; if(AC.specU[k]!=null) $(id).value=AC.specU[k]; });
+  }
+  acDrawLists();
+  var lot=lotOf(AC.file), dl=lotOf(DECKFILE&&DECKFILE.name);
+  $("acNote").innerHTML=(AC.walls.length?'<span class="ok">✔ 外壁の区画 '+AC.walls.length+'・窓 '+AC.wins.length+'・屋根/天井 '+AC.roofs.length+' を読み取りました。</span> 平面図を見ながら、LDKのものにチェックを付けてください。':'<span class="hint">外皮の計算書（断熱等性能等級）のPDFも入れてください。</span>')+
+    (AC.mainArea?' 主たる居室 '+AC.mainArea+'㎡ を床面積に入れました。':' <span class="hint">LDKの床面積は「一次エネルギー消費量算定条件（概要版）」PDFを入れると自動で入ります。</span>')+
+    ((lot&&dl&&lot!==dl)?' <span class="ng">⚠ 計算書の物件（'+lot+'）と提案書（'+dl+'）が違います。</span>':'');
+}
+/* 平面図（外皮性能算定平面図）と外壁のページを表示 */
+function acPlanPages(){
+  var opts=AC.pages.filter(function(p){ return p.t.some(function(s){ return /平面図|■外壁＜|■屋根・天井/.test(s); }); });
+  $("acPlanSel").innerHTML=opts.map(function(p){ var nm=(p.t.find(function(s){ return /^■(平面図|外壁＜.+＞|屋根・天井)/.test(s); })||("p"+p.n)); return '<option value="'+p.n+'">'+p.n+'ページ　'+nm.replace("■","")+'</option>'; }).join("");
+  $("acPlanSel").onchange=acShowPlan; acShowPlan();
+}
+async function acShowPlan(){
+  var n=+$("acPlanSel").value, p=AC.pages.find(function(x){ return x.n===n; }); if(!p) return;
+  var vp=p.page.getViewport({scale:1.6}), cv=$("acPlan"); cv.width=vp.width; cv.height=vp.height;
+  await p.page.render({canvasContext:cv.getContext("2d"),viewport:vp,intent:"print"}).promise;
+}
+(function(){
+  var box=$("acDrop"), inp=$("acIn");
+  box.onclick=function(e){ if(e.target.id!=="acIn") inp.click(); };
+  inp.onchange=function(){ acTakeFiles([].slice.call(inp.files)); inp.value=""; };
+  box.ondragover=function(e){ e.preventDefault(); };
+  box.ondrop=function(e){ e.preventDefault(); acTakeFiles([].slice.call(e.dataTransfer.files)); };
+  $("acAddRow").onclick=function(){ AC.rows.push({kind:"外壁",dir:"南",area:0,U:0.41,eta:0,shade:1,cls:"LDK"}); acDrawRows(); };
+  acDrawModels(); acDrawRows();
+  document.querySelectorAll("#acCondBox input, #acCondBox select, #acModels input").forEach(function(e){ e.oninput=e.onchange=acUpdate; });
+  $("useAircon").onchange=function(){ $("tsAircon").textContent=this.checked?"入れる":""; };
+  acUpdate();
+})();
+
 /* ---- 提案書を読み込む ---- */
 async function openDeck(file){
   DECKFILE=file;
@@ -2576,6 +2952,7 @@ async function openDeck(file){
   COSTD=null; $("useCost").checked=false; $("useCost").disabled=true; $("tsCost").textContent="";
   checkLots(); checkSolarLot();
   // 太陽光: 提案書に結果画面が貼ってあれば読み取る（光熱費の読み取りとは別に進める）
+  var fa=findSlide("aircon"); $("fAircon").textContent=fa!=null?"（提案書の"+(fa+1)+"ページ目と差し替えます。元のページは削除します）":"（エアコンのページが見つからないため、室温ページの後ろに追加します）";
   var fs=findSlide("solar");
   $("fSolar").textContent=fs!=null?"（提案書の"+(fs+1)+"ページ目と差し替えます。元のページは削除します）":"（太陽光のページが見つからないため、光熱費ページの後ろに追加します）";
   if(fs!=null && bigPic(DECKX.slides[fs])) picBlob(DECKX.slides[fs],bigPic(DECKX.slides[fs])).then(function(bl){ return solarFromBlob(bl,"提案書の太陽光ページ"); });
@@ -2635,9 +3012,9 @@ $("buildBtn").onclick=async function(){
     if(["pL1temp","pL2temp","pR1temp","pR2temp"].some(function(id){ return $(id).value===""; })){ alert("室温: 温度が入っていない欄があります。"); tabTo("room"); return; }
   }
   if(doHealth && !window.HEALTH){ alert("健康評価: 先に「★を判定する」を押してください。"); tabTo("health"); return; }
-  var doDrop=PDFDATA&&PDFDATA.drop&&$("useDrop").checked, doSolar=$("useSolar").checked;
+  var doDrop=PDFDATA&&PDFDATA.drop&&$("useDrop").checked, doSolar=$("useSolar").checked, doAircon=$("useAircon").checked&&AC_LAST&&AC_LAST.r.model;
   if(doSolar && !(+$("sol_t1").value && +$("sol_t2").value && +$("sol_t3").value && +$("sol_init").value)){ alert("太陽光: ①②③と設置費用を入れてください。"); tabTo("solar"); return; }
-  if(!doCost&&!doRoom&&!doHealth&&!doDrop&&!doSolar){ alert("入れたいページにチェックを付けてください。"); return; }
+  if(!doCost&&!doRoom&&!doHealth&&!doDrop&&!doSolar&&!doAircon){ alert("入れたいページにチェックを付けてください。"); return; }
   $("buildBtn").disabled=true; $("bmsg").textContent="作成中…";
   try{
     await loadDeck(DECKFILE);   // 毎回、元の提案書から作り直す
@@ -2656,6 +3033,8 @@ $("buildBtn").onclick=async function(){
     }
     if(doSolar){ buildSolar({t1:+$("sol_t1").value,t2:+$("sol_t2").value,t3:+$("sol_t3").value,init:+$("sol_init").value,kw:+$("sol_kw").value||null,
       series:(SOLAR&&SOLAR.series&&SOLAR.t1===+$("sol_t1").value&&SOLAR.t2===+$("sol_t2").value&&SOLAR.t3===+$("sol_t3").value)?SOLAR.series:null}); made.push("太陽光"); }
+    if(doAircon){ var R=AC_LAST.r; buildAircon({coolKW:R.coolKW, heatKW:R.heatKW, model:R.model, cool:R.cool, heat:R.heat, margin:AC_LAST.c.margin, area:AC_LAST.c.area,
+      homes:{c:+$("acHomesC").value||null, h:+$("acHomesH").value||null, m:$("acHomesM").value.trim()}}); made.push("エアコン選定"); }
     if(doHealth){
       var H=window.HEALTH;
       buildHealth({rows:H.rows,ua:H.ua,uab:H.uab,grade:H.grade,
