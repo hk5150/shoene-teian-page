@@ -274,16 +274,27 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
     <div id="acDrop" class="slotBox" style="padding:20px 8px">計算書のPDFをここにドラッグ／クリックして選択（複数可）<input type="file" id="acIn" accept=".pdf" multiple style="display:none"></div>
     <div id="acNote" style="margin-top:8px;font-size:13px"></div>
   </div>
+  <div class="board">
+    <h2>1-2. 設計図PDF（任意）</h2>
+    <p class="sub">平面詳細図・断面図などの設計図があれば入れてください。計算は外皮計算書だけでできます。設計図は、天井高・高天井・吹抜け・リビング階段を<b>目で確かめるため</b>に使います。文字で取れた数字は「候補」として出すだけで、決めるのは人です（吹抜け・リビング階段は自動で「あり」にしません）。図面の欄外（会社名・建築士の氏名など）は読み取りません。</p>
+    <div id="acDwgDrop" class="slotBox" style="padding:14px 8px">設計図のPDFをここにドラッグ／クリックして選択<input type="file" id="acDwgIn" accept=".pdf" style="display:none"></div>
+    <div id="acDwgBox" style="display:none;margin-top:8px">
+      図面名・日付 <input type="text" id="acDwgName" style="width:320px"> <span class="hint">（提案書の注記「設計図（○○）で確認」に使います）</span>
+      <div id="acDwgCand" style="margin:8px 0;font-size:13px"></div>
+      <select id="acDwgSel" style="margin-bottom:6px"></select>
+      <div style="overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:6px"><canvas id="acDwg"></canvas></div>
+    </div>
+  </div>
   <div class="board" id="acCondBox">
     <h2>2. 条件</h2>
     <p class="sub">計算書に載っていないもの（天井高・吹抜け・リビング階段・換気の熱交換）は、ここで入れます。天井高は断面図の数字（高天井の部分があれば、その面積と高さも）。吹抜け・リビング階段は「あり」を選ぶと、見込みの面積と割増（暖房・冷房とも）で計算します。地域区分 <b id="acRegion">—</b></p>
     <table>
-      <tr><td>LDKの床面積</td><td><input type="number" step="0.01" id="acArea" value="0" style="width:90px"> ㎡ <label class="hint"><input type="checkbox" id="acFloorOn" checked> 床から逃げる熱を入れる（1階のLDK）</label></td>
-          <td>天井高（基本）</td><td><input type="number" step="0.01" id="acH" value="2.4" style="width:70px"> m　高天井 <input type="number" step="0.01" id="acHiA" value="0" style="width:60px"> ㎡・高さ <input type="number" step="0.01" id="acHiH" value="3.2" style="width:60px"> m <span class="hint">（なければ0㎡）</span></td></tr>
+      <tr><td>LDKの床面積</td><td><input type="number" step="0.01" id="acArea" value="0" style="width:90px"> ㎡ <label class="hint"><input type="checkbox" id="acFloorOn" checked> 床から逃げる熱を入れる（1階のLDK）</label><br>根拠 <select id="acKonArea" class="acKon"><option>図面で確認</option><option selected>外皮計算書</option><option>設計者に確認</option><option>仮定</option></select></td>
+          <td>天井高（基本）</td><td><input type="number" step="0.01" id="acH" value="2.4" style="width:70px"> m　高天井 <input type="number" step="0.01" id="acHiA" value="0" style="width:60px"> ㎡・高さ <input type="number" step="0.01" id="acHiH" value="3.2" style="width:60px"> m <span class="hint">（なければ0㎡）</span><br>根拠 天井高 <select id="acKonH" class="acKon"><option>図面で確認</option><option>外皮計算書</option><option>設計者に確認</option><option selected>仮定</option></select> 高天井 <select id="acKonHi" class="acKon"><option>図面で確認</option><option>外皮計算書</option><option>設計者に確認</option><option selected>仮定</option></select></td></tr>
       <tr><td>冬 室温／外気温</td><td><input type="number" id="acTin" value="20" style="width:60px"> ℃ ／ <input type="number" id="acToutW" value="0" style="width:60px"> ℃ <span class="hint">（地域区分から自動）</span></td>
           <td>夏 室温／外気温</td><td><input type="number" id="acTinS" value="27" style="width:60px"> ℃ ／ <input type="number" id="acToutS" value="34" style="width:60px"> ℃</td></tr>
-      <tr><td>吹抜け</td><td><select id="acFuki"><option>なし</option><option>あり</option></select> 見込み 面積 <input type="number" step="0.1" id="acFukiA" value="8" style="width:56px"> ㎡ × 増える高さ <input type="number" step="0.1" id="acFukiH" value="2.9" style="width:56px"> m・割増 <input type="number" id="acFukiK" value="10" style="width:46px"> %</td>
-          <td>リビング階段</td><td><select id="acStair"><option>なし</option><option>あり</option></select> 見込み つながる2階 <input type="number" step="0.1" id="acStairA" value="5" style="width:56px"> ㎡・割増 <input type="number" id="acStairK" value="10" style="width:46px"> %</td></tr>
+      <tr><td>吹抜け</td><td><select id="acFuki"><option>なし</option><option>あり</option></select> 見込み 面積 <input type="number" step="0.1" id="acFukiA" value="8" style="width:56px"> ㎡ × 増える高さ <input type="number" step="0.1" id="acFukiH" value="2.9" style="width:56px"> m・割増 <input type="number" id="acFukiK" value="10" style="width:46px"> %<br>根拠 <select id="acKonFuki" class="acKon"><option>図面で確認</option><option>外皮計算書</option><option>設計者に確認</option><option selected>仮定</option></select></td>
+          <td>リビング階段</td><td><select id="acStair"><option>なし</option><option>あり</option></select> 見込み つながる2階 <input type="number" step="0.1" id="acStairA" value="5" style="width:56px"> ㎡・割増 <input type="number" id="acStairK" value="10" style="width:46px"> %<br>根拠 <select id="acKonStair" class="acKon"><option>図面で確認</option><option>外皮計算書</option><option>設計者に確認</option><option selected>仮定</option></select></td></tr>
       <tr><td>換気回数／熱交換</td><td><input type="number" step="0.1" id="acAch" value="0.5" style="width:60px"> 回/h ／ 熱交換効率 <input type="number" id="acHx" value="0" style="width:56px"> % <span class="hint">（熱交換なしは0）</span></td>
           <td>人数／家電の発熱</td><td><input type="number" id="acPpl" value="4" style="width:56px"> 人 ／ <input type="number" id="acAppl" value="400" style="width:70px"> W</td></tr>
       <tr><td>余裕率</td><td><input type="number" id="acMargin" value="30" style="width:60px"> %</td>
@@ -973,7 +984,7 @@ function buildAircon(d){
     b.rect(X+3.9,yy+rowH*0.22,Math.max(SW*v/tot,0.05),rowH*0.56,col);
     b.label(X+3.9+Math.max(SW*v/tot,0.05)+0.15,yy,2.0,rowH,[[`${Math.round(v/tot*100)}%`,9.5,"404040",true]]);
   });
-  b.label(1.0,13.15,23.4,0.7,[[`※ 部屋の温度が落ち着いた状態で必要な能力の目安です（立ち上がり・来客などを見込み、余裕${Math.round(d.margin*100)}%を加えています）。外皮計算書の寸法・U値をもとにした簡易計算で、機種の最終決定はメーカーのカタログでご確認ください。`,7.5,"7C8288",false]],"l","t");
+  b.label(1.0,13.15,23.4,0.7,[[`※ 部屋の温度が落ち着いた状態で必要な能力の目安です（立ち上がり・来客などを見込み、余裕${Math.round(d.margin*100)}%を加えています）。外皮計算書の寸法・U値をもとにした簡易計算で、機種の最終決定はメーカーのカタログでご確認ください。${d.basis?" "+d.basis:""}`,7.5,"7C8288",false]],"l","t");
   return insertSlide(b,oldIdx,anchor,{title:"エアコン選び",text:"エアコン"});
 }
 
@@ -2936,6 +2947,75 @@ async function acShowPlan(){
   acUpdate();
 })();
 
+/* ---- 設計図（任意）: 天井高・高天井・吹抜け・リビング階段を目で確かめる ----
+   文字で取れる数字や言葉は「候補」として出すだけ。決めるのは人（採用ボタン）。
+   図面の欄外（会社名・建築士の氏名・登録番号など）は拾わない: 決まった形の数字・言葉だけを探す */
+var ACDWG=null;
+async function acTakeDrawing(file){
+  $("acDwgCand").textContent="読み込み中…";
+  var d=await acReadPdf(file); ACDWG=d;
+  var m=file.name.replace(/\.pdf$/i,"").match(/^(\d{2})(\d{2})(\d{2})(.*)$/);
+  $("acDwgName").value=m?("20"+m[1]+"年"+(+m[2])+"月"+(+m[3])+"日 "+m[4].trim()).trim():file.name.replace(/\.pdf$/i,"");
+  $("acDwgBox").style.display="block";
+  // 候補を探す（ページごと）
+  var heights={}, ldk=[], fuki=[], kaidan=[], koten=[];
+  d.pages.forEach(function(p){
+    p.t.forEach(function(s){
+      var h=s.match(/^([234]),?(\d{3})$/); if(h){ var v=+(h[1]+h[2]); if(v>=2100&&v<=4200){ (heights[v]=heights[v]||[]).push(p.n); } }
+      var l=s.match(/LDK\s*([\d.]+)/); if(l && ldk.indexOf(l[1])<0) ldk.push(l[1]);
+      if(/吹抜/.test(s) && fuki.indexOf(p.n)<0) fuki.push(p.n);
+      if(/階段/.test(s) && kaidan.indexOf(p.n)<0) kaidan.push(p.n);
+      if(/高天井/.test(s) && koten.indexOf(p.n)<0) koten.push(p.n);
+    });
+  });
+  // 断面図のページの数字を優先（平面図の寸法 2,730・3,640 なども同じ形なので）
+  var secPages=d.pages.filter(function(p){ return p.t.some(function(s){ return /断面|立面|高天井|階高/.test(s); }); }).map(function(p){ return p.n; });   // 「断面」が絵の文字のこともあるので、立面・高天井でも見分ける
+  var hs=Object.keys(heights).map(Number).sort(function(a,b){return a-b;});
+  var onSec=function(v){ return heights[v].some(function(n){ return secPages.indexOf(n)>=0; }); };
+  var hsMain=secPages.length?hs.filter(onSec):hs, hsOther=secPages.length?hs.filter(function(v){ return !onSec(v); }):[];
+  var h='<b>図面から見つかった候補</b>（採用すると、根拠が「図面で確認」になります）<br>';
+  var btn=function(v){ var pg=heights[v].filter(function(x,i,a){return a.indexOf(x)===i;}).join("・");
+    return '<span style="display:inline-block;margin:3px 10px 3px 0">'+v.toLocaleString()+' <span class="hint">('+pg+'ページ)</span> <button class="sub2" data-ach="'+v+'">基本の天井高に採用</button> <button class="sub2" data-achi="'+v+'">高天井の高さに採用</button></span>'; };
+  h+=(secPages.length?'断面図・立面図（'+secPages.join("・")+'ページ）の高さの数字: ':'天井高らしい数字: ')+(hsMain.length?hsMain.map(btn).join(""):'<span class="hint">見つかりませんでした</span>')+
+     (hsOther.length?'<details style="display:inline-block;margin-left:6px"><summary class="hint">ほかのページの数字（'+hsOther.length+'件）</summary>'+hsOther.map(btn).join("")+'</details>':'')+'<br>';
+  if(false) h+='天井高らしい数字: '+(hs.length?hs.map(function(v){ var pg=heights[v].filter(function(x,i,a){return a.indexOf(x)===i;}).join("・");
+    return '<span style="display:inline-block;margin:3px 10px 3px 0">'+v.toLocaleString()+' <span class="hint">('+pg+'ページ)</span> <button class="sub2" data-ach="'+v+'">基本の天井高に採用</button> <button class="sub2" data-achi="'+v+'">高天井の高さに採用</button></span>'; }).join(""):'<span class="hint">見つかりませんでした</span>')+'<br>';
+  h+='「高天井」の文字: '+(koten.length?koten.join("・")+'ページ <span class="hint">（高天井の面積は、平面図で範囲を測って入れてください）</span>':'見つかりません')+'<br>';
+  h+='部屋名のLDK: '+(ldk.length?ldk.map(function(x){ var a=Math.round(x*1.62*100)/100; return 'LDK'+x+'帖（約'+a+'㎡） <button class="sub2" data-aarea="'+a+'">床面積に採用</button>'; }).join("　"):'見つかりません')+' <span class="hint">（床面積は外皮計算書の「主たる居室」が基本）</span><br>';
+  h+='「吹抜」の文字: '+(fuki.length?'<b>あり</b>（'+fuki.join("・")+'ページ）':'なし')+'　「階段」の文字: '+(kaidan.length?kaidan.join("・")+'ページ':'なし')+' <span class="hint">→ 吹抜け・リビング階段は、図面で確かめて上の「あり／なし」と根拠を選んでください</span>';
+  $("acDwgCand").innerHTML=h;
+  $("acDwgCand").querySelectorAll("[data-ach]").forEach(function(b){ b.onclick=function(){ $("acH").value=(+b.dataset.ach/1000).toFixed(2); $("acKonH").value="図面で確認"; acUpdate(); }; });
+  $("acDwgCand").querySelectorAll("[data-achi]").forEach(function(b){ b.onclick=function(){ $("acHiH").value=(+b.dataset.achi/1000).toFixed(2); $("acKonHi").value="図面で確認"; acUpdate(); }; });
+  $("acDwgCand").querySelectorAll("[data-aarea]").forEach(function(b){ b.onclick=function(){ $("acArea").value=b.dataset.aarea; $("acKonArea").value="図面で確認"; acUpdate(); }; });
+  $("acDwgSel").innerHTML=d.pages.map(function(p){ return '<option value="'+p.n+'">'+p.n+'ページ</option>'; }).join("");
+  $("acDwgSel").onchange=acShowDwg; acShowDwg();
+}
+async function acShowDwg(){
+  var n=+$("acDwgSel").value, p=ACDWG&&ACDWG.pages.find(function(x){ return x.n===n; }); if(!p) return;
+  var vp=p.page.getViewport({scale:1.3}), cv=$("acDwg"); cv.width=vp.width; cv.height=vp.height;
+  await p.page.render({canvasContext:cv.getContext("2d"),viewport:vp,intent:"print"}).promise;
+}
+/* 提案書の注記: 「仮定」が残っていればその内容、全部確認済みなら出典 */
+function acBasisNote(){
+  var c=acCond(), k=function(id){ return $(id).value; }, items=[];
+  if(k("acKonH")==="仮定") items.push("天井高"+c.h+"m");
+  if(k("acKonHi")==="仮定" && c.hiA>0) items.push("高天井"+c.hiA+"㎡・"+c.hiH+"m");
+  if(k("acKonFuki")==="仮定") items.push("吹抜け"+(c.fuki?"あり":"なし"));
+  if(k("acKonStair")==="仮定") items.push("リビング階段"+(c.stair?"あり":"なし"));
+  if(items.length) return items.join("・")+"と仮定した参考値です。";
+  var ks=["acKonArea","acKonH","acKonHi","acKonFuki","acKonStair"].map(k), src=[];
+  if(ks.indexOf("図面で確認")>=0) src.push("設計図（"+($("acDwgName").value||"図面")+"）で確認");
+  if(ks.indexOf("設計者に確認")>=0) src.push("設計者に確認");
+  return src.length?"出典："+src.join("・")+"。":"";
+}
+(function(){
+  var box=$("acDwgDrop"), inp=$("acDwgIn");
+  box.onclick=function(e){ if(e.target.id!=="acDwgIn") inp.click(); };
+  inp.onchange=function(){ if(inp.files[0]) acTakeDrawing(inp.files[0]); inp.value=""; };
+  box.ondragover=function(e){ e.preventDefault(); };
+  box.ondrop=function(e){ e.preventDefault(); if(e.dataTransfer.files[0]) acTakeDrawing(e.dataTransfer.files[0]); };
+})();
+
 /* ---- 提案書を読み込む ---- */
 async function openDeck(file){
   DECKFILE=file;
@@ -3037,7 +3117,7 @@ $("buildBtn").onclick=async function(){
     if(doSolar){ buildSolar({t1:+$("sol_t1").value,t2:+$("sol_t2").value,t3:+$("sol_t3").value,init:+$("sol_init").value,kw:+$("sol_kw").value||null,
       series:(SOLAR&&SOLAR.series&&SOLAR.t1===+$("sol_t1").value&&SOLAR.t2===+$("sol_t2").value&&SOLAR.t3===+$("sol_t3").value)?SOLAR.series:null}); made.push("太陽光"); }
     if(doAircon){ var R=AC_LAST.r; buildAircon({coolKW:R.coolKW, heatKW:R.heatKW, model:R.model, cool:R.cool, heat:R.heat, margin:AC_LAST.c.margin, area:AC_LAST.c.area,
-      homes:{c:+$("acHomesC").value||null, h:+$("acHomesH").value||null, m:$("acHomesM").value.trim()}}); made.push("エアコン選定"); }
+      homes:{c:+$("acHomesC").value||null, h:+$("acHomesH").value||null, m:$("acHomesM").value.trim()}, basis:acBasisNote()}); made.push("エアコン選定"); }
     if(doHealth){
       var H=window.HEALTH;
       buildHealth({rows:H.rows,ua:H.ua,uab:H.uab,grade:H.grade,
