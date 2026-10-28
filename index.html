@@ -3092,6 +3092,7 @@ function acImportBlock(text){
   if(pl && dl && !acSameLot(pl,dl)) warn.push("Copilotの物件名（"+pl+"）と、提案書（"+dl+"）が違います");
   acUpdate();
   $("acRoofs").style.outline=roofUnk?"2px solid #C0392B":"";
+  setTimeout(acReviewWin,0);
   var ask=kv["確認してほしいこと"];
   $("acCpMsg").innerHTML='<span class="ok">✔ 取り込みました。</span> 平面図と見比べて、チェックが合っているか確かめてください。'+
     (warn.length?'<div class="ng" style="margin-top:4px">⚠ '+warn.join("<br>⚠ ")+'</div>':'')+
@@ -3107,19 +3108,34 @@ var AC_REVIEW=[];
 function acReviewHtml(){
   var ws=AC.walls.filter(function(w){ return String(w.floor)==="1" && w.h>=2.8 && w.h<=3.5 && !$("acWall_"+w.id).checked; });
   var rs=AC.roofs.filter(function(r){ return String(r.floor)==="1" && !$("acRoof_"+r.id).checked; });
+  AC_REVIEW_WIN=[];
   AC_REVIEW=ws.map(function(w){ return "acWall_"+w.id; }).concat(rs.map(function(r){ return "acRoof_"+r.id; }));
   if(!AC_REVIEW.length) return "";
   var li=function(id,txt){ return '<label style="display:inline-block;margin:2px 12px 2px 0"><input type="checkbox" data-rv="'+id+'"> '+txt+'</label>'; };
   return '<div style="margin-top:6px;padding:8px 10px;background:#EEF4FB;border-left:4px solid #3B6FB6"><b>見落としがないか確認</b>（Copilotが選ばなかった1階の区画。平面図を見て、LDKに面するものにチェック。一部だけなら下の表で「使う幅」「使う面積」を直す）'+
     (ws.length?'<br>外壁: '+ws.map(function(w){ return li("acWall_"+w.id, w.sec+"（"+w.dir+"・"+w.area.toFixed(2)+"㎡）"); }).join(""):'')+
-    (rs.length?'<br>屋根・天井: '+rs.map(function(r){ return li("acRoof_"+r.id, r.part+" "+r.sec+"（"+r.area.toFixed(2)+"㎡）"); }).join(""):'')+'</div>';
+    (rs.length?'<br>屋根・天井: '+rs.map(function(r){ return li("acRoof_"+r.id, r.part+" "+r.sec+"（"+r.area.toFixed(2)+"㎡）"); }).join(""):'')+
+    '<div id="acRvWin"></div></div>';
+}
+// チェックした外壁の式の「−#番号」のうち、まだ選んでいない窓（壁を足すと、その壁の窓も抜けやすい）。初期はチェックなし
+var AC_REVIEW_WIN=[];
+function acReviewWin(){
+  var box=$("acRvWin"); if(!box) return;
+  var ids=[];
+  AC.walls.forEach(function(w){ if($("acWall_"+w.id).checked) w.minus.forEach(function(id){ var e=$("acWin_"+id.slice(1)); if(e && ids.indexOf(id)<0 && (!e.checked || AC_REVIEW_WIN.indexOf(id)>=0)) ids.push(id); }); });
+  ids.forEach(function(id){ if(AC_REVIEW_WIN.indexOf(id)<0) AC_REVIEW_WIN.push(id); });
+  var ws=AC.wins.reduce(function(o,w){ o[w.id]=w; return o; },{});
+  box.innerHTML=ids.length?'窓: '+ids.map(function(id){ var w=ws[id]||{}, sec=AC.walls.filter(function(x){ return $("acWall_"+x.id).checked && x.minus.indexOf(id)>=0; }).map(function(x){ return x.sec; }).join("・");
+      return '<label style="display:inline-block;margin:2px 12px 2px 0"><input type="checkbox" data-rv="acWin_'+id.slice(1)+'"'+($("acWin_"+id.slice(1)).checked?' checked':'')+'> '+id+'（'+sec+'の窓・'+(w.area||0).toFixed(2)+'㎡）</label>'; }).join("")+
+    '<br><span class="hint">同じ区画でも、LDKの外の窓（浴室など）があります。平面図で確かめてから選んでください。</span>':'';
 }
 // 見落とし確認のうち、まだ計算に入っていない区画
-function acReviewLeft(){ return AC_REVIEW.filter(function(id){ var e=$(id); return e && !e.checked; }); }
+function acReviewLeft(){ return AC_REVIEW.concat(AC_REVIEW_WIN.map(function(id){ return "acWin_"+id.slice(1); })).filter(function(id){ var e=$(id); return e && !e.checked; }); }
 (function(){
   $("acCpBtn").onclick=function(){ acImportBlock($("acCpText").value); };
   // 確認の一覧のチェックを、下の表のチェックに写す
-  $("acCpMsg").addEventListener("change",function(ev){ var id=ev.target.dataset&&ev.target.dataset.rv; if(!id) return; $(id).checked=ev.target.checked; acUpdate(); });
+  $("acCpMsg").addEventListener("change",function(ev){ var id=ev.target.dataset&&ev.target.dataset.rv; if(!id) return; $(id).checked=ev.target.checked; acUpdate(); if(!/^acWin_/.test(id)) acReviewWin(); });
+  $("acWalls").addEventListener("change",function(){ acReviewWin(); });
 })();
 
 /* ---- 提案書を読み込む ---- */
