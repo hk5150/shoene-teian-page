@@ -273,6 +273,12 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
     <p class="sub">「断熱等性能等級」の計算書（外皮面積計算表が入っているもの）と、「一次エネルギー消費量算定条件（概要版）」を、まとめてドラッグ。壁の区画・窓・屋根の寸法とU値・η値、LDK（主たる居室）の床面積を読み取ります。</p>
     <div id="acDrop" class="slotBox" style="padding:20px 8px">計算書のPDFをここにドラッグ／クリックして選択（複数可）<input type="file" id="acIn" accept=".pdf" multiple style="display:none"></div>
     <div id="acNote" style="margin-top:8px;font-size:13px"></div>
+    <details style="margin-top:10px" open><summary><b>Copilotの結果を貼り付け</b> <span class="hint">（Copilotエージェント「LDKエアコン選定の拾い出し係」の答え）</span></summary>
+      <p class="hint" style="margin:6px 0">計算書PDFを上に入れてから、Copilotの答えの <b>[LDKエアコン選定 v1] 〜 [終わり]</b> を貼り付けて「取り込む」を押すと、壁・窓・屋根のチェック、使う幅・面積、天井高、吹抜け・リビング階段、根拠が入ります。前後に説明文が付いていても大丈夫です。</p>
+      <textarea id="acCpText" style="width:100%;height:120px;font-family:Consolas,monospace;font-size:12px" placeholder="[LDKエアコン選定 v1]&#10;…&#10;[終わり]"></textarea>
+      <div><button class="sub2" id="acCpBtn">取り込む</button></div>
+      <div id="acCpMsg" style="margin-top:6px;font-size:13px"></div>
+    </details>
   </div>
   <div class="board">
     <h2>1-2. 設計図PDF（任意）</h2>
@@ -3015,6 +3021,78 @@ function acBasisNote(){
   box.ondragover=function(e){ e.preventDefault(); };
   box.ondrop=function(e){ e.preventDefault(); if(e.dataTransfer.files[0]) acTakeDrawing(e.dataTransfer.files[0]); };
 })();
+
+/* ---- エアコン選定: Copilot の結果（取り込み用ブロック）を貼り付けて入れる ----
+   [LDKエアコン選定 v1] 〜 [終わり] の間だけを読む。全角・単位付きの数字も受け付ける。
+   区画名・#番号は、外皮計算書PDFから読んだ一覧と照らし合わせ、見つからないものは取り込まずに警告。
+   「不明」の項目は取り込まず、その欄を赤くする。 */
+function acNum(s){ var m=String(s||"").normalize("NFKC").replace(/,/g,"").match(/-?\d+(\.\d+)?/); return m?+m[0]:null; }
+function acMark(id,bad){ var e=$(id); if(e) e.style.outline=bad?"2px solid #C0392B":""; }
+function acBuildingLot(){
+  for(var p of AC.pages) for(var s of p.t){ if(/号地/.test(s)){ var l=lotOf(s); if(l) return l; } }
+  return lotOf(AC.file);
+}
+function acImportBlock(text){
+  var msg=[], warn=[], bad=[];
+  var src=String(text||"").normalize("NFKC");
+  var a=src.indexOf("[LDKエアコン選定 v1]"), b=src.indexOf("[終わり]", a);
+  if(a<0||b<0){ $("acCpMsg").innerHTML='<span class="ng">[LDKエアコン選定 v1] 〜 [終わり] が見つかりません。Copilotの答えから、その間をコピーして貼り付けてください。</span>'; return; }
+  if(!AC.walls.length){ $("acCpMsg").innerHTML='<span class="ng">先に、外皮計算書のPDFを上の欄に入れてください（区画の一覧と照らし合わせるため）。</span>'; return; }
+  var kv={};
+  src.slice(a+"[LDKエアコン選定 v1]".length,b).split(/\r?\n/).forEach(function(l){ var i=l.indexOf("="); if(i>0) kv[l.slice(0,i).trim()]=l.slice(i+1).trim(); });
+  var unk=function(v){ return v==null || v==="" || /不明|わからない|未確認$/.test(v); };
+  var KON=["図面で確認","外皮計算書","設計者に確認","仮定"];
+  // 数字の項目
+  [["LDK床面積","acArea"],["天井高","acH"],["高天井面積","acHiA"],["高天井高さ","acHiH"]].forEach(function(x){
+    var v=kv[x[0]]; acMark(x[1],false); if(v===undefined) return;
+    if(unk(v) || acNum(v)==null){ bad.push(x[0]); acMark(x[1],true); return; }
+    $(x[1]).value=acNum(v);
+  });
+  // あり／なし
+  [["吹抜け","acFuki"],["リビング階段","acStair"]].forEach(function(x){
+    var v=kv[x[0]]; acMark(x[1],false); if(v===undefined) return;
+    if(/^あり/.test(v)) $(x[1]).value="あり"; else if(/^なし/.test(v)) $(x[1]).value="なし"; else { bad.push(x[0]); acMark(x[1],true); }
+  });
+  // 根拠
+  [["天井高の根拠","acKonH"],["高天井の根拠","acKonHi"],["吹抜けの根拠","acKonFuki"],["リビング階段の根拠","acKonStair"],["床面積の根拠","acKonArea"]].forEach(function(x){
+    var v=kv[x[0]]; acMark(x[1],false); if(v===undefined) return;
+    var k=KON.find(function(o){ return v.indexOf(o)>=0; }); if(k) $(x[1]).value=k; else { bad.push(x[0]); acMark(x[1],true); }
+  });
+  // 地域区分 → 冬の外気温
+  if(kv["地域区分"]!==undefined){ var r=acNum(kv["地域区分"]); if(r&&AC_WINTER[r]!=null){ $("acToutW").value=AC_WINTER[r]; $("acRegion").textContent=r+"地域"; } else bad.push("地域区分"); }
+  // 区画の一覧（「S1:2.73, T1」）
+  var list=function(v){ return unk(v)?null:v.split(/[,、\s]+/).map(function(t){ return t.trim(); }).filter(Boolean).map(function(t){ var m=t.match(/^([^:]+)(?::(.+))?$/); return {name:m[1].trim(), val:m[2]!=null?acNum(m[2]):null}; }); };
+  var lw=list(kv["外壁"]), lwin=list(kv["窓"]), lr=list(kv["屋根"]), lc=list(kv["天井"]);
+  if(lw){ AC.walls.forEach(function(w){ $("acWall_"+w.id).checked=false; $("acWallW_"+w.id).value=w.w; });
+    lw.forEach(function(x){ var w=AC.walls.find(function(w){ return w.sec===x.name; });
+      if(!w){ warn.push("外壁 "+x.name+" は計算書にありません"); return; }
+      $("acWall_"+w.id).checked=true; if(x.val!=null) $("acWallW_"+w.id).value=x.val; }); }
+  else if(kv["外壁"]!==undefined) bad.push("外壁");
+  if(lwin){ AC.wins.forEach(function(w){ $("acWin_"+w.id.slice(1)).checked=false; });
+    lwin.forEach(function(x){ var id="#"+x.name.replace(/^#/,""), w=AC.wins.find(function(w){ return w.id===id; });
+      if(!w){ warn.push("窓 "+id+" は計算書にありません"); return; } $("acWin_"+id.slice(1)).checked=true; }); }
+  else if(kv["窓"]!==undefined) bad.push("窓");
+  if(lr||lc){ AC.roofs.forEach(function(r){ $("acRoof_"+r.id).checked=false; $("acRoofA_"+r.id).value=Math.round(r.area*1000)/1000; }); }
+  [["屋根",lr],["天井",lc]].forEach(function(pp){ if(!pp[1]){ if(kv[pp[0]]!==undefined && !/^なし/.test(kv[pp[0]])) bad.push(pp[0]); return; }
+    pp[1].forEach(function(x){ if(/^なし$/.test(x.name)) return; var r=AC.roofs.find(function(r){ return r.part===pp[0] && r.sec===x.name; });
+      if(!r){ warn.push(pp[0]+" "+x.name+" は計算書にありません"); return; }
+      $("acRoof_"+r.id).checked=true; if(x.val!=null) $("acRoofA_"+r.id).value=x.val; }); });
+  // 設計図の名前（注記の出典に使う）
+  // 設計図の名前は、ページの注記にそのまま出すので、全角のかっこなどを変えずに元の文字で入れる
+  var rawDwg=(String(text).match(/設計図\s*[=＝]\s*(.+)/)||[])[1];
+  if(kv["設計図"] && !unk(kv["設計図"]) && !/^なし/.test(kv["設計図"])){ $("acDwgBox").style.display="block"; if(!$("acDwgName").value) $("acDwgName").value=(rawDwg||kv["設計図"]).trim(); }
+  // 物件違い
+  var pl=lotOf(kv["物件名"]), bl=acBuildingLot(), dl=lotOf(DECKFILE&&DECKFILE.name);
+  if(pl && bl && pl!==bl) warn.push("Copilotの物件名（"+pl+"）と、読み込んだ計算書（"+bl+"）が違います");
+  if(pl && dl && pl!==dl) warn.push("Copilotの物件名（"+pl+"）と、提案書（"+dl+"）が違います");
+  acUpdate();
+  var ask=kv["確認してほしいこと"];
+  $("acCpMsg").innerHTML='<span class="ok">✔ 取り込みました。</span> 平面図と見比べて、チェックが合っているか確かめてください。'+
+    (warn.length?'<div class="ng" style="margin-top:4px">⚠ '+warn.join("<br>⚠ ")+'</div>':'')+
+    (bad.length?'<div class="ng" style="margin-top:4px">「不明」などで取り込まなかった項目（赤い枠）: '+bad.join("・")+' → 手で入れてください</div>':'')+
+    (ask && !/^なし/.test(ask)?'<div style="margin-top:6px;padding:8px 10px;background:#FFF4E5;border-left:4px solid #E8862E"><b>Copilotからの確認事項:</b> '+ask.replace(/</g,"&lt;")+'</div>':'');
+}
+(function(){ $("acCpBtn").onclick=function(){ acImportBlock($("acCpText").value); }; })();
 
 /* ---- 提案書を読み込む ---- */
 async function openDeck(file){
