@@ -905,7 +905,7 @@ function buildAircon(d){
   const pal=palette(deckTheme()), MAIN=pal.main, ORANGE="E8862E", GRAY="80858C";
   let oldIdx=purgeHidden("aircon",findSlide("aircon"));
   const anchor=oldIdx!=null?oldIdx:findSlide("room"), old=oldIdx!=null?DECKX.slides[oldIdx]:null;
-  const b=new SlideBuilder(), P=d.pick, mdl=P.m[0], f1=v=>v.toFixed(1), volt=accVolt;
+  const b=new SlideBuilder(), P=d.pick, mdl=P.m[0], f1=v=>v.toFixed(1);   // 100V／200Vはメリット・デメリットがあるのでページには書かない（北村さん）
   headerFrom(b,headerSource(old),{kicker:"03｜暮らしのメリット",
     titleParts:[["性能に合わせた、","262626"],["ムダのないエアコン選び",pal.hi]],
     lead:`LDKは${mdl}で足ります。大きすぎる機種を選ばず、初期費用と電気代を抑えます。`,
@@ -915,7 +915,7 @@ function buildAircon(d){
   b.rect(1.0,T,9.0,TH,pal.light);
   b.label(1.0,T+0.25,9.0,0.55,[["おすすめのエアコン",12,"404040",true]],"ctr");
   b.label(1.0,T+0.85,9.0,1.5,[[mdl,38,MAIN,true]],"ctr");
-  b.label(1.0,T+2.45,9.0,0.55,[[`冷房 ${f1(P.m[1])}kW ／ 暖房 ${f1(P.m[2])}kW・${volt(P.m)}`,11.5,"404040",false]],"ctr");
+  b.label(1.0,T+2.45,9.0,0.55,[[`冷房 ${f1(P.m[1])}kW ／ 暖房 ${f1(P.m[2])}kW`,11.5,"404040",false]],"ctr");
   b.label(1.0,T+3.1,9.0,0.9,[[`足りない時間は 冷房 年${P.c.h}時間・暖房 年${P.h.h}時間だけ`,9,"6B7076",false]],"ctr");
   // 上右: 帖数どおり／断熱等級4なら／この家なら
   const RX=10.3, RW=14.1;
@@ -926,7 +926,8 @@ function buildAircon(d){
   if(g4) tiles.push(["断熱等級4の家なら",g4,GRAY,"F3F4F5"]);
   if(tiles.length){
     tiles.push(["この家の性能なら",P,MAIN,pal.light]);
-    b.label(RX+0.45,T,RW-0.6,0.7,[["ふつうに選ぶと、もっと大きな機種に",12,"262626",true]]);
+    const bigger=tiles.slice(0,-1).some(t=>d.rows.indexOf(t[1])>d.rows.indexOf(P));
+    b.label(RX+0.45,T,RW-0.6,0.7,[[bigger?"ふつうに選ぶと、もっと大きな機種に":"ふつうに選んだ場合との比較",12,"262626",true]]);
     const n=tiles.length, aw=0.6, tw=(RW-0.9-aw*(n-1)-0.3*(n-1))/n;
     tiles.forEach(([ttl,m,col,bg],i)=>{
       const x=RX+0.45+i*(tw+aw+0.3);
@@ -934,11 +935,10 @@ function buildAircon(d){
       b.label(x,T+1.0,tw,0.5,[[ttl,8.5,"595959",false]],"ctr");
       b.label(x,T+1.45,tw,0.95,[[m.m[0],n>2?20:24,col,true]],"ctr");
       b.label(x,T+2.45,tw,0.45,[[`冷房${f1(m.m[1])}／暖房${f1(m.m[2])}kW`,8,"6B7076",false]],"ctr");
-      b.label(x,T+2.85,tw,0.45,[[volt(m.m),8.5,volt(m.m)==="200V"?ORANGE:"6B7076",true]],"ctr");
       if(i<n-1) b.shape(x+tw+0.15,T+1.9,aw,0.5,{geom:"rightArrow",fill:ORANGE});
     });
     const big=tiles[0][1], diff=d.rows.indexOf(big)-d.rows.indexOf(P);
-    b.label(RX+0.45,T+3.6,RW-0.9,0.8,[[diff>0?`${diff}サイズ小さい機種で足ります`:"機種の大きさは変わりません",13,ORANGE,true]],"ctr");
+    b.label(RX+0.45,T+3.6,RW-0.9,0.8,[[diff>0?`${diff}サイズ小さい機種で足ります`:diff<0?`帖数より${-diff}サイズ大きい機種が必要です`:"機種の大きさは変わりません",13,diff<0?"C0392B":ORANGE,true]],"ctr");
   } else {
     const n0=v=>Math.round(v).toLocaleString();
     b.label(RX+0.45,T,RW-0.6,0.7,[["LDKの1年間の負荷",12,"262626",true]]);
@@ -950,11 +950,10 @@ function buildAircon(d){
   const Y=8.95, H=3.95, LW=14.6;
   b.rect(1.0,Y,LW,H,"FFFFFF",pal.line); b.rect(1.0,Y,0.12,0.7,ORANGE);
   b.label(1.45,Y,LW-0.6,0.7,[["大きすぎるエアコンのデメリット",12,"262626",true]]);
-  const big200=[d.byJo,g4].some(m=>m && m!==P && volt(m.m)==="200V");
   const items=[
     ["電気代","小さな負荷で運転と停止をくり返し、効率のよくない運転が増えます。"],
     ["湿気戻り","冷房がすぐ止まり、冷やしたときに出た水分が部屋に戻って、じめじめしやすくなります。"],
-    ["初期費用",big200?`本体が高いうえ、${accFirst200()}以上は200Vの専用コンセントの工事が必要です。`:"能力の大きい機種ほど、本体の価格が高くなります。"]];
+    ["初期費用","能力の大きい機種ほど、本体の価格が高くなります。"]];
   items.forEach(([k,v],i)=>{
     const y=Y+0.85+i*1.0;
     b.shape(1.45,y+0.12,2.1,0.62,{geom:"roundRect",adj:50000,fill:i===1?ORANGE:MAIN,paras:b.para([[k,9.5,"FFFFFF",true]],"ctr"),wrap:false});
@@ -964,11 +963,11 @@ function buildAircon(d){
   const X=15.9, W=8.5;
   b.rect(X,Y,W,H,pal.light);
   b.label(X+0.35,Y+0.15,W-0.7,0.55,[["おすすめの機種",10,"595959",true]]);
-  b.label(X+0.35,Y+0.7,W-0.7,0.7,[[d.maker||"",15,"262626",true]]);
-  b.label(X+0.35,Y+1.4,W-0.7,0.7,[[mdl,20,MAIN,true],[`  ${P.m[4]?P.m[4]+"・":""}冷房${f1(P.m[1])}kW・${volt(P.m)}`,9.5,"404040",false]]);
+  const outN=!P.m[4];   // 機種表に品番がない（Nシリーズは18畳用まで）→ シリーズ名・特長は出さない
+  b.label(X+0.35,Y+0.7,W-0.7,0.7,[[outN?"機種はカタログから選定":(d.maker||""),15,"262626",true]]);
+  b.label(X+0.35,Y+1.4,W-0.7,0.7,[[mdl,20,MAIN,true],[`  ${P.m[4]?P.m[4]+"・":""}冷房${f1(P.m[1])}kW`,9.5,"404040",false]]);
   b.shape(X+0.35,Y+2.15,W-0.7,H-2.3,{txBox:true,anchor:"t",paras:
-    (d.point?b.para([[d.point,9.5,"404040",false]]):"")+
-    (volt(P.m)==="100V"?b.para([["ふつうの100Vのコンセントで設置できます。",9.5,"404040",false]]):"")});
+    (outN?b.para([[`${d.maker||"標準のシリーズ"}の範囲外（20畳用以上は別シリーズ）です。`,9.5,"C0392B",true]]):d.point?b.para([[d.point,9.5,"404040",false]]):"")});
   b.label(1.0,13.15,23.4,0.7,[[`※ ホームズ君の年間シミュレーション（1時間ごと）で、定格能力で足りない時間が年${d.lim}時間以下の機種を選んでいます${g4?"（断熱等級4は、同じ間取りで断熱だけを等級4にした比較プラン）":""}。負荷は全熱（顕熱＋潜熱）。機種の最終決定はメーカーのカタログでご確認ください。`,7.5,"7C8288",false]],"l","t");
   return insertSlide(b,oldIdx,anchor,{title:"エアコン選び",text:"エアコン"});
 }
@@ -2765,6 +2764,7 @@ function accUpdate(){
   var st=function(nm,s){ return '<tr><td>'+nm+'</td><td>'+n(s.hrs)+' 時間</td><td>'+f2(s.max)+' kW <span class="hint">（'+(s.maxAt>=0?accLabel(r.times[s.maxAt]):"—")+'）</span></td><td>'+f2(s.maxRun)+' kW</td><td>'+f2(s.p99)+' kW</td><td>'+n(s.kwh)+' kWh</td></tr>'; };
   var h=(r.pick?'<div style="font-size:16px"><b>おすすめ <span class="ok">'+r.pick.m[0]+'</span></b>（冷房 '+r.pick.m[1].toFixed(1)+'kW ／ 暖房 '+r.pick.m[2].toFixed(1)+'kW・'+accVolt(r.pick.m)+'）　足りない時間 冷房 '+r.pick.c.h+'h ／ 暖房 '+r.pick.h.h+'h</div>'
       :'<div class="ng"><b>どの機種でも、足りない時間が '+r.lim+' 時間を超えます。</b>機種表・上限を見直してください（このままではページを作りません）。</div>')+
+    (r.pick&&!r.pick.m[4]?'<div class="ng" style="margin-top:4px">⚠ '+r.pick.m[0]+'は機種表の品番がありません（Nシリーズは18畳用まで。20畳用以上は別シリーズ）。ページには「範囲外」と出ます。上の「おすすめの機種」を、使うシリーズに直してください。</div>':'')+
     (r.byJo?'<div style="margin-top:4px">LDKの帖数（'+r.jo+'帖）どおりに選ぶと <b>'+r.byJo.m[0]+'</b>（'+accVolt(r.byJo.m)+'）</div>':'<div class="hint" style="margin-top:4px">LDKの帖数を入れると、帖数どおりに選んだ場合と比べられます。</div>')+
     (r.g4?'<div style="margin-top:4px">断熱等級4（比較プラン）なら <b>'+(r.g4.pick?r.g4.pick.m[0]:"どの機種でも足りない")+'</b>'+(r.g4.pick?'（足りない時間 冷房 '+r.g4.pick.c.h+'h ／ 暖房 '+r.g4.pick.h.h+'h）':'')+'</div>':'')+
     '<table style="margin-top:10px"><tr><th></th><th>運転時間</th><th>最大負荷</th><th>立ち上がりを除いた最大</th><th>99%値</th><th>年間負荷</th></tr>'+st("暖房",r.heat)+st("冷房",r.cool)+'</table>'+
