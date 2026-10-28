@@ -2685,12 +2685,14 @@ async function accTakeFile(file,g4){
   if(!d){ note.innerHTML='<span class="ng">⚠ 別のCSVです。ホームズ君「室温・暖冷房負荷（年間）」の <b>暖冷房負荷_全熱.csv</b> を入れてください（同じフォルダの 室温.csv・体感温度.csv などではありません）。</span>'; return; }
   var info=d.times.length.toLocaleString()+'時間・'+d.names.length+'列'+(d.times.length!==8760?' <span class="ng">⚠ 8,760時間ではありません。</span>':'');
   if(g4){
+    if(accSame(ACC,d)){ ACC4=null; note.innerHTML='<span class="ng">⚠ 本プランのCSVと中身がまったく同じです。同じファイルではありませんか？（ファイル名が同じなので取り違えやすい）断熱等級4にしたプランで計算し直して出したCSVを入れてください。</span>'; accUpdate(); return; }
     ACC4=d;
     var miss=ACC?accSelectedNames().filter(function(n){ return d.names.indexOf(n)<0; }):[];
     note.innerHTML='<span class="ok">✔ 断熱等級4の '+file.name+' を読み込みました（'+info+'）。</span>'+(miss.length?' <span class="ng">⚠ 本プランで選んだ列（'+miss.join("・")+'）がありません。</span>':'');
     accUpdate(); return;
   }
   ACC=d;
+  if(accSame(ACC,ACC4)){ ACC4=null; $("accNote4").innerHTML='<span class="ng">⚠ 断熱等級4の欄のCSVと中身がまったく同じだったので、等級4の欄は外しました。</span>'; }
   var pick=d.names.map(function(n,j){ return /LDK/.test(n)?j:-1; }).filter(function(j){ return j>=0; });
   $("accRooms").innerHTML=d.names.map(function(n,j){ return /合計|屋根裏|床下|階間/.test(n)?"":'<label style="display:inline-block;margin:2px 12px 2px 0"><input type="checkbox" data-col="'+j+'"'+(pick.indexOf(j)>=0?" checked":"")+'> '+n+'</label>'; }).join("");
   $("accRooms").querySelectorAll("input").forEach(function(e){ e.onchange=accUpdate; });
@@ -2698,6 +2700,11 @@ async function accTakeFile(file,g4){
     (pick.length?'':' <span class="ng">部屋名に「LDK」を含む列がありません。下でLDKの列を選んでください。</span>');
   accGuessJo();
   accUpdate();
+}
+/* 2つのCSVの値がまったく同じか（本プランと同じファイルを等級4の欄に入れる間違いを防ぐ） */
+function accSame(a,b){
+  if(!a||!b||a.cols.length!==b.cols.length||a.times.length!==b.times.length) return false;
+  return a.cols.every(function(c,j){ var e=b.cols[j]; return c.every(function(v,i){ return v===e[i]; }); });
 }
 /* LDKの帖数: 部屋名や提案書の文字に「LDK 20.6帖」のようにあれば入れる（なければ手で） */
 function accGuessJo(){
