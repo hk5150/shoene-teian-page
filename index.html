@@ -292,7 +292,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
   </div>
   <div class="board">
     <h2>3. LDKの壁・窓・屋根を選ぶ</h2>
-    <p class="sub">平面図を見ながら、LDKに面する外壁の区画・窓・屋根（天井）にチェックを付けます。区画の一部だけがLDKのときは「使う幅」を直します（そのときは、その区画のうちLDKの窓だけを差し引きます）。吹抜けの高窓や、リビング階段でつながる2階の部分は「区分」を変えて選びます。</p>
+    <p class="sub">平面図を見ながら、LDKに面する外壁の区画・窓・屋根（天井）にチェックを付けます。区画の一部だけがLDKのときは、外壁は「使う幅」（その区画のうちLDKの窓だけを差し引きます）、屋根・天井は「使う面積」を、平面図の通り芯で切り分けて直します。吹抜けの高窓や、リビング階段でつながる2階の部分は「区分」を変えて選びます。</p>
     <select id="acPlanSel" style="margin-bottom:6px"></select>
     <div style="overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:6px;margin-bottom:12px"><canvas id="acPlan"></canvas></div>
     <b>外壁の区画</b><div id="acWalls" style="margin:4px 0 12px"></div>
@@ -2848,7 +2848,7 @@ function acParts(){
   AC.wins.forEach(function(w){ if(!winChecked[w.id]) return;
     parts.push({kind:"窓", dir:w.dir, area:w.area, U:+$("acWinU_"+w.id.slice(1)).value, eta:+$("acWinE_"+w.id.slice(1)).value, shade:+$("acWinS_"+w.id.slice(1)).value||1, cls:$("acWinC_"+w.id.slice(1)).value, label:w.id}); });
   AC.roofs.forEach(function(r){ var cb=$("acRoof_"+r.id); if(!cb||!cb.checked) return;
-    parts.push({kind:"屋根・天井", dir:"水平", area:r.area, U:r.part==="屋根"?(+$("acUroof").value||gu("屋根",0.23)):(+$("acUceil").value||gu("天井",0.17)), eta:0, shade:1, cls:$("acRoofC_"+r.id).value, label:r.part+r.sec}); });
+    parts.push({kind:"屋根・天井", dir:"水平", area:(+$("acRoofA_"+r.id).value||r.area), U:r.part==="屋根"?(+$("acUroof").value||gu("屋根",0.23)):(+$("acUceil").value||gu("天井",0.17)), eta:0, shade:1, cls:$("acRoofC_"+r.id).value, label:r.part+r.sec}); });
   if($("acFloorOn").checked) parts.push({kind:"床", dir:"-", area:+$("acArea").value, U:+$("acUfloor").value||gu("床",0.30), eta:0, shade:1, cls:"LDK", label:"床"});
   AC.rows.forEach(function(r,i){ if(!(r.area>0)) return; parts.push(Object.assign({label:"手入力"+(i+1)},r)); });
   return parts;
@@ -2864,8 +2864,8 @@ function acDrawLists(){
     if(s.U==null && AC.specU.ドア!=null){ s={U:AC.specU.ドア, eta:Math.round(0.034*AC.specU.ドア*1000)/1000}; w.door=true; }   // 窓の表にない開口＝ドア
     h+='<tr><td><input type="checkbox" id="acWin_'+k+'"></td><td>'+w.id+(w.door?'（ドア）':'')+'</td><td>'+w.dir+'</td><td>'+w.floor+'</td><td>'+w.w+'×'+w.h+'</td><td>'+w.area.toFixed(2)+'㎡</td><td><input type="number" step="0.01" id="acWinU_'+k+'" value="'+(s.U||1.31)+'" style="width:64px"></td><td><input type="number" step="0.001" id="acWinE_'+k+'" value="'+(s.eta||0.317)+'" style="width:70px"></td><td><input type="number" step="0.1" id="acWinS_'+k+'" value="1" style="width:56px"></td><td>'+acClsSel("acWinC_"+k,"LDK")+'</td></tr>'; });
   $("acWins").innerHTML=AC.wins.length?h+'</table>':'<span class="hint">窓が読み取れませんでした。</span>';
-  h='<table><tr><th>LDK</th><th>部位</th><th>階</th><th>区画</th><th>計算書の式</th><th>面積</th><th>区分</th></tr>';
-  AC.roofs.forEach(function(r){ h+='<tr><td><input type="checkbox" id="acRoof_'+r.id+'"></td><td>'+r.part+'</td><td>'+r.floor+'</td><td>'+r.sec+'</td><td>'+r.text+'</td><td>'+r.area.toFixed(2)+'㎡</td><td>'+acClsSel("acRoofC_"+r.id,"LDK")+'</td></tr>'; });
+  h='<table><tr><th>LDK</th><th>部位</th><th>階</th><th>区画</th><th>計算書の式</th><th>面積</th><th>使う面積 (㎡)</th><th>区分</th></tr>';
+  AC.roofs.forEach(function(r){ h+='<tr><td><input type="checkbox" id="acRoof_'+r.id+'"></td><td>'+r.part+'</td><td>'+r.floor+'</td><td>'+r.sec+'</td><td>'+r.text+'</td><td>'+r.area.toFixed(2)+'㎡</td><td><input type="number" step="0.01" id="acRoofA_'+r.id+'" value="'+(Math.round(r.area*1000)/1000)+'" style="width:80px"></td><td>'+acClsSel("acRoofC_"+r.id,"LDK")+'</td></tr>'; });
   $("acRoofs").innerHTML=AC.roofs.length?h+'</table>':'<span class="hint">屋根・天井の区画が読み取れませんでした。</span>';
   document.querySelectorAll("#acWalls input, #acWalls select, #acWins input, #acWins select, #acRoofs input, #acRoofs select").forEach(function(e){ e.oninput=e.onchange=acUpdate; });
   acUpdate();
