@@ -86,7 +86,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
 </head>
 <body>
 <header>
-  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.5（更新日 2026-11-02）</span></h1>
+  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.6（更新日 2026-11-02）</span></h1>
   <div class="deck" id="deckName">提案書がまだ入っていません</div>
 </header>
 <div id="previewWarn" style="display:none;background:#FFF4E5;border-bottom:2px solid #E8862E;padding:14px 28px;font-size:14px;line-height:1.8">
@@ -281,15 +281,16 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
     <h2>2. LDKの列と条件</h2>
     <p class="sub">部屋名に「LDK」を含む列を最初から選んでいます。LDKが2列に分かれている・「LD」「リビング」などの名前のときは、チェックで選び直してください（複数選ぶと、時間ごとに足します）。</p>
     <div id="accRooms" style="margin-bottom:10px;font-size:13px"></div>
-    足りない時間の上限 <input type="number" id="accLim" value="20" style="width:60px"> 時間／年 <span class="hint">（冷房・暖房とも、定格能力で足りない時間がこれ以下の、いちばん小さい機種を選びます）</span><br>
+    エアコンのシリーズ <select id="accSeries"><option value="N" selected>Nシリーズ（基本）</option><option value="HX">HXシリーズ（畳数を下げたいとき）</option></select> <span class="hint">（Nの最大能力はELシリーズの値とみなしています）</span><br>
+    足りない時間の上限 <input type="number" id="accLim" value="20" style="width:60px"> 時間／年 <span class="hint">（冷房・暖房とも、最大能力で足りない時間がこれ以下で、落ち着いた後の負荷が定格に収まる、いちばん小さい機種を選びます）</span><br>
     LDKの帖数 <input type="number" step="0.1" id="accJo" style="width:70px"> 帖 <span class="hint">（帖数どおりに選んだ場合との比較に使います。提案書に「LDK○帖」とあれば自動で入ります）</span><br>
     おすすめの機種（ページに出す） <input type="text" id="accMaker" value="パナソニック エオリア Nシリーズ" style="width:260px"><br>
-    機種のひとこと <input type="text" id="accPoint" value="ZEH対応のスタンダードモデル（住宅設備モデル）。サビや潮風に強い耐塩害仕様。" style="width:560px"> <span class="hint">（特に指示がなければNシリーズ。品番は機種表から自動で入ります）</span>
+    機種のひとこと <input type="text" id="accPoint" value="ZEH対応のスタンダードモデル（住宅設備モデル）。サビや潮風に強い耐塩害仕様。" style="width:560px"> <span class="hint">（シリーズを変えると入れ替わります。品番は機種表から自動で入ります）</span>
   </div>
   <div class="board">
     <h2>3. 結果</h2>
     <div id="acResult"></div>
-    <details style="margin-top:10px"><summary class="hint">機種表（エオリア Nシリーズ 2027年モデルの定格能力。Nシリーズは18畳用まで。使う機種のカタログ値に直せます）</summary><div id="acModels"></div></details>
+    <details style="margin-top:10px"><summary class="hint">機種表（エオリア 2027年モデルの定格・最大能力。Nは18畳用まで。カタログ値に直せます）</summary><div id="acModels"></div></details>
   </div>
 </section>
 
@@ -1027,7 +1028,7 @@ function buildAircon(d){
   b.label(X+0.35,Y+1.4,W-0.7,0.7,[[mdl,20,MAIN,true],[`  ${P.m[4]?P.m[4]+"・":""}冷房${f1(P.m[1])}kW`,9.5,"404040",false]]);
   b.shape(X+0.35,Y+2.15,W-0.7,H-2.3,{txBox:true,anchor:"t",paras:
     (outN?b.para([[`${d.maker||"標準のシリーズ"}の範囲外（20畳用以上は別シリーズ）です。`,9.5,"C0392B",true]]):d.point?b.para([[d.point,9.5,"404040",false]]):"")});
-  b.label(1.0,13.15,23.4,0.7,[[`※ ホームズ君の年間シミュレーション（1時間ごと）で、定格能力で足りない時間が年${d.lim}時間以下の機種を選んでいます${g4?"（断熱等級4は、同じ間取りで断熱だけを等級4にした比較プラン）":""}。負荷は全熱（顕熱＋潜熱）。機種の最終決定はメーカーのカタログでご確認ください。`,7.5,"7C8288",false]],"l","t");
+  b.label(1.0,13.15,23.4,0.7,[[`※ ホームズ君の年間シミュレーション（1時間ごと）で、最大能力で足りない時間が年${d.lim}時間以下で、部屋が落ち着いた後の負荷が定格能力に収まる機種を選んでいます${g4?"（断熱等級4は、同じ間取りで断熱だけを等級4にした比較プラン）":""}。負荷は全熱（顕熱＋潜熱）。${d.series==="N"?"Nシリーズの最大能力はELシリーズの値を目安にしています。":""}機種の最終決定はメーカーのカタログでご確認ください。`,7.5,"7C8288",false]],"l","t");
   return insertSlide(b,oldIdx,anchor,{title:"エアコン選び",text:"エアコン"});
 }
 
@@ -2742,13 +2743,22 @@ cropSideGap=function(img,gap,side){ return trimToPlan(_cropSideGap(img,gap,side)
 /* ===== エアコン選定（ホームズ君の毎時負荷CSVで選ぶ） =====
    入力: ホームズ君パッシブ設計オプション「室温・暖冷房負荷（年間）」→ 印刷 → CSV出力の「暖冷房負荷_全熱.csv」
    （cp932。1行目「// 時別・部屋別の暖冷房負荷(全熱) [Wh]」、2行目 部屋ID、3行目 部屋名、4行目から8,760時間。暖房はプラス・冷房はマイナス）
-   選び方: 冷房・暖房とも「定格能力で足りない時間が年○時間以下」になる、いちばん小さい機種。
+   選び方: 冷房・暖房とも「最大能力で足りない時間が年○時間以下」で、部屋が落ち着いた後の負荷が定格能力に収まる、いちばん小さい機種。
    「立ち上がり」＝直前の1時間がその運転（暖房なら暖房）でなかった時間。
    断熱等級4（比較プラン）のCSVも入れると、同じ選び方で「等級4の家なら○畳用」を出す（任意）。 */
-/* 機種表: [名前, 冷房定格kW, 暖房定格kW, 電源, 品番]。18畳用まではパナソニック エオリア Nシリーズ（住宅設備モデル・2027年モデル）。
-   Nシリーズは18畳用まで → 20畳用以上は帖数どおりに選んだ場合と比べるための一般的な値（品番なし） */
-var AC_MODELS=[["6畳用",2.2,2.5,"100V","CS-227DN"],["8畳用",2.5,2.8,"100V","CS-257DN"],["10畳用",2.8,3.6,"100V","CS-287DN"],["12畳用",3.6,4.2,"100V","CS-367DN"],
-  ["14畳用",4.0,5.0,"200V","CS-407DN2"],["18畳用",5.6,6.7,"200V","CS-567DN2"],["20畳用",6.3,7.1,"200V",""],["23畳用",7.1,8.5,"200V",""],["26畳用",8.0,9.5,"200V",""],["29畳用",9.0,10.0,"200V",""]];
+/* 機種表: [名前, 冷房定格, 暖房定格, 電源, 品番, 冷房最大, 暖房最大]（kW・エオリア 2027年モデル）
+   N: 基本。18畳用まで。公式ページに最大能力がないので、ELシリーズの同じ畳数の値とみなす（北村さん判断）。
+      20畳用以上は帖数どおりに選んだ場合と比べるための値で品番なし（20・23畳用の最大はEL、26・29畳用は定格のまま）。
+   HX: 畳数を下げたいときの提案用。10・12畳用は100Vの機種の値。 */
+var AC_SERIES={
+  N:{maker:"パナソニック エオリア Nシリーズ", point:"ZEH対応のスタンダードモデル（住宅設備モデル）。サビや潮風に強い耐塩害仕様。", models:[
+    ["6畳用",2.2,2.5,"100V","CS-227DN",3.3,5.2],["8畳用",2.5,2.8,"100V","CS-257DN",3.5,5.2],["10畳用",2.8,3.6,"100V","CS-287DN",3.6,5.4],["12畳用",3.6,4.2,"100V","CS-367DN",4.0,8.7],
+    ["14畳用",4.0,5.0,"200V","CS-407DN2",4.3,8.7],["18畳用",5.6,6.7,"200V","CS-567DN2",5.7,10.2],["20畳用",6.3,7.1,"200V","",6.4,10.2],["23畳用",7.1,8.5,"200V","",7.2,10.6],["26畳用",8.0,9.5,"200V","",8.0,9.5],["29畳用",9.0,10.0,"200V","",9.0,10.0]]},
+  HX:{maker:"パナソニック エオリア HXシリーズ", point:"ハイグレードモデル。最大能力が高く、長時間つけていても省エネ。", models:[
+    ["6畳用",2.2,2.5,"100V","CS-227DHX",3.6,5.8],["8畳用",2.5,2.8,"100V","CS-257DHX",3.7,6.2],["10畳用",2.8,3.6,"100V","CS-287DHX",4.5,7.1],["12畳用",3.6,4.2,"100V","CS-367DHX",4.8,7.1],
+    ["14畳用",4.0,5.0,"200V","CS-407DHX2",5.8,11.5],["18畳用",5.6,6.7,"200V","CS-567DHX2",6.2,11.5],["20畳用",6.3,7.1,"200V","CS-637DHX2",6.8,11.5],["23畳用",7.1,8.5,"200V","CS-717DHX2",7.4,11.5],["26畳用",8.0,9.5,"200V","CS-807DHX2",8.2,11.5],["29畳用",9.0,10.6,"200V","CS-907DHX2",9.1,11.8]]}
+};
+var AC_MODELS=AC_SERIES.N.models;
 var ACC=null, ACC4=null;   // { file, names, times, cols[i]=8,760時間の値（Wh） }
 var AC_LAST=null;
 
@@ -2796,9 +2806,9 @@ function accGuessJo(){
   if(m) $("accJo").value=+m[1];
 }
 function accSelectedNames(){ return [].slice.call($("accRooms").querySelectorAll("input:checked")).map(function(e){ return ACC.names[+e.dataset.col]; }); }
-function accModels(){ return AC_MODELS.map(function(m,i){ return [m[0], +$("acMc"+i).value||m[1], +$("acMh"+i).value||m[2], m[3], m[4]]; }); }
+function accModels(){ return AC_MODELS.map(function(m,i){ return [m[0], +$("acMc"+i).value||m[1], +$("acMh"+i).value||m[2], m[3], m[4], +$("acMcx"+i).value||m[5], +$("acMhx"+i).value||m[6]]; }); }
 function accLabel(t){ var m=String(t).match(/(\d+)\/(\d+)_(\d+):(\d+)/); return m?(+m[1])+"/"+(+m[2])+" "+(+m[3])+":"+m[4]:t; }
-/* 電源（機種表の値。Nシリーズは14畳用から200V） */
+/* 電源（機種表の値） */
 function accVolt(m){ return m[3]||"200V"; }
 /* いちばん小さい200Vの機種（「○畳用以上は200V」の説明に使う） */
 function accFirst200(){ var m=AC_MODELS.find(function(x){ return x[3]==="200V"; }); return m?m[0]:"14畳用"; }
@@ -2818,13 +2828,14 @@ function accShort(st,cap,times){
   return { h:h, start:s, kwh:kwh, pct:st.kwh?kwh/st.kwh*100:0, days:Object.keys(days).length };
 }
 /* あるCSVの、選んだ部屋（名前）の合計で機種を選ぶ */
-function accRun(D,names,lim){
+function accRun(D,names,lim,models){
   var cols=names.map(function(n){ return D.names.indexOf(n); }).filter(function(j){ return j>=0; });
   if(!cols.length) return null;
   var sum=D.times.map(function(_,i){ return cols.reduce(function(a,j){ return a+D.cols[j][i]; },0); });
   var heat=accStats(sum.map(function(x){ return x>0?x/1000:0; })), cool=accStats(sum.map(function(x){ return x<0?-x/1000:0; }));
-  var rows=accModels().map(function(m){ return { m:m, c:accShort(cool,m[1],D.times), h:accShort(heat,m[2],D.times) }; });
-  return { heat:heat, cool:cool, rows:rows, pick:rows.find(function(r){ return r.c.h<=lim && r.h.h<=lim; })||null, times:D.times };
+  // 足りない時間は最大能力で数える。落ち着いた後（立ち上がり以外）の最大負荷は定格に収まること
+  var rows=(models||accModels()).map(function(m){ return { m:m, c:accShort(cool,m[5],D.times), h:accShort(heat,m[6],D.times), steady:m[1]>=cool.maxRun&&m[2]>=heat.maxRun }; });
+  return { heat:heat, cool:cool, rows:rows, pick:rows.find(function(r){ return r.c.h<=lim && r.h.h<=lim && r.steady; })||null, times:D.times };
 }
 function accCalc(){
   if(!ACC) return null;
@@ -2835,6 +2846,8 @@ function accCalc(){
   r.room=names.join("＋"); r.lim=lim; r.jo=jo;
   r.byJo=jo?r.rows.find(function(x){ return parseFloat(x.m[0])>=jo; })||r.rows[r.rows.length-1]:null;
   r.g4=ACC4?accRun(ACC4,names,lim):null;
+  r.series=$("accSeries").value;
+  r.other=accRun(ACC,names,lim,AC_SERIES[r.series==="N"?"HX":"N"].models);
   r.maker=$("accMaker").value.trim(); r.point=$("accPoint").value.trim();
   return r;
 }
@@ -2843,24 +2856,32 @@ function accUpdate(){
   if(!r){ $("acResult").innerHTML='<span class="hint">CSVを入れて、LDKの列を選ぶと結果が出ます。</span>'; return; }
   var f2=function(x){ return x.toFixed(2); }, n=function(x){ return Math.round(x).toLocaleString(); };
   var st=function(nm,s){ return '<tr><td>'+nm+'</td><td>'+n(s.hrs)+' 時間</td><td>'+f2(s.max)+' kW <span class="hint">（'+(s.maxAt>=0?accLabel(r.times[s.maxAt]):"—")+'）</span></td><td>'+f2(s.maxRun)+' kW</td><td>'+f2(s.p99)+' kW</td><td>'+n(s.kwh)+' kWh</td></tr>'; };
-  var h=(r.pick?'<div style="font-size:16px"><b>おすすめ <span class="ok">'+r.pick.m[0]+'</span></b>（冷房 '+r.pick.m[1].toFixed(1)+'kW ／ 暖房 '+r.pick.m[2].toFixed(1)+'kW・'+accVolt(r.pick.m)+'）　足りない時間 冷房 '+r.pick.c.h+'h ／ 暖房 '+r.pick.h.h+'h</div>'
-      :'<div class="ng"><b>どの機種でも、足りない時間が '+r.lim+' 時間を超えます。</b>機種表・上限を見直してください（このままではページを作りません）。</div>')+
-    (r.pick&&!r.pick.m[4]?'<div class="ng" style="margin-top:4px">⚠ '+r.pick.m[0]+'は機種表の品番がありません（Nシリーズは18畳用まで。20畳用以上は別シリーズ）。ページには「範囲外」と出ます。上の「おすすめの機種」を、使うシリーズに直してください。</div>':'')+
+  var h=(r.pick?'<div style="font-size:16px"><b>おすすめ <span class="ok">'+r.pick.m[0]+'</span></b>（冷房 '+r.pick.m[1].toFixed(1)+'kW ／ 暖房 '+r.pick.m[2].toFixed(1)+'kW・'+accVolt(r.pick.m)+(r.pick.m[4]?'・'+r.pick.m[4]:'')+'）　足りない時間 冷房 '+r.pick.c.h+'h ／ 暖房 '+r.pick.h.h+'h</div>'
+      :'<div class="ng"><b>条件に合う機種がありません（足りない時間が '+r.lim+' 時間を超えるか、落ち着いた後の負荷が定格を超えます）。</b>機種表・上限を見直してください（このままではページを作りません）。</div>')+
+    (r.pick&&!r.pick.m[4]?'<div class="ng" style="margin-top:4px">⚠ '+r.pick.m[0]+'はNシリーズにありません（18畳用まで）。ページには「範囲外」と出ます。シリーズをHXに変えると品番が入ります。</div>':'')+
+    (r.other&&r.other.pick?'<div style="margin-top:4px">'+(r.series==="N"?"HX":"N")+'シリーズなら <b>'+r.other.pick.m[0]+'</b>（'+r.other.pick.m[4]+'・足りない時間 冷房 '+r.other.pick.c.h+'h ／ 暖房 '+r.other.pick.h.h+'h）</div>':'')+
     (r.byJo?'<div style="margin-top:4px">LDKの帖数（'+r.jo+'帖）どおりに選ぶと <b>'+r.byJo.m[0]+'</b>（'+accVolt(r.byJo.m)+'）</div>':'<div class="hint" style="margin-top:4px">LDKの帖数を入れると、帖数どおりに選んだ場合と比べられます。</div>')+
     (r.g4?'<div style="margin-top:4px">断熱等級4（比較プラン）なら <b>'+(r.g4.pick?r.g4.pick.m[0]:"どの機種でも足りない")+'</b>'+(r.g4.pick?'（足りない時間 冷房 '+r.g4.pick.c.h+'h ／ 暖房 '+r.g4.pick.h.h+'h）':'')+'</div>':'')+
     '<table style="margin-top:10px"><tr><th></th><th>運転時間</th><th>最大負荷</th><th>立ち上がりを除いた最大</th><th>99%値</th><th>年間負荷</th></tr>'+st("暖房",r.heat)+st("冷房",r.cool)+'</table>'+
-    '<table style="margin-top:10px"><tr><th>機種</th><th>冷房 定格</th><th>足りない時間<br>（うち立ち上がり）</th><th>不足量・割合・日数</th><th>暖房 定格</th><th>足りない時間<br>（うち立ち上がり）</th><th>不足量・割合・日数</th>'+(r.g4?'<th>等級4の足りない時間<br>冷房｜暖房</th>':'')+'</tr>'+
+    '<table style="margin-top:10px"><tr><th>機種</th><th>冷房 定格／最大</th><th>足りない時間<br>（うち立ち上がり）</th><th>不足量・割合・日数</th><th>暖房 定格／最大</th><th>足りない時間<br>（うち立ち上がり）</th><th>不足量・割合・日数</th><th>落ち着いた後は<br>定格に収まるか</th>'+(r.g4?'<th>等級4の足りない時間<br>冷房｜暖房</th>':'')+'</tr>'+
     r.rows.map(function(x,i){ var on=x===r.pick, sty=on?' style="background:#EEF4FB;font-weight:bold"':'';
       var cell=function(s){ return '<td'+(s.h>r.lim?' class="ng"':'')+'>'+s.h+' h（'+s.start+'）</td><td>'+f2(s.kwh)+' kWh・'+s.pct.toFixed(2)+'%・'+s.days+'日</td>'; };
       var g=r.g4?r.g4.rows[i]:null;
-      return '<tr'+sty+'><td>'+x.m[0]+(on?' ★':'')+'</td><td>'+x.m[1].toFixed(1)+'</td>'+cell(x.c)+'<td>'+x.m[2].toFixed(1)+'</td>'+cell(x.h)+(g?'<td>'+g.c.h+'｜'+g.h.h+(g===r.g4.pick?' ★':'')+'</td>':'')+'</tr>'; }).join("")+'</table>';
+      return '<tr'+sty+'><td>'+x.m[0]+(on?' ★':'')+'</td><td>'+x.m[1].toFixed(1)+'／'+x.m[5].toFixed(1)+'</td>'+cell(x.c)+'<td>'+x.m[2].toFixed(1)+'／'+x.m[6].toFixed(1)+'</td>'+cell(x.h)+'<td'+(x.steady?'':' class="ng"')+'>'+(x.steady?'○':'×')+'</td>'+(g?'<td>'+g.c.h+'｜'+g.h.h+(g===r.g4.pick?' ★':'')+'</td>':'')+'</tr>'; }).join("")+'</table>';
   $("acResult").innerHTML=h;
 }
 function accDrawModels(){
-  var h='<table><tr><th>機種</th><th>品番（Nシリーズ）</th><th>電源</th><th>冷房 定格 (kW)</th><th>暖房 定格 (kW)</th></tr>';
-  AC_MODELS.forEach(function(m,i){ h+='<tr><td>'+m[0]+'</td><td>'+(m[4]||'<span class="hint">（比較用）</span>')+'</td><td>'+m[3]+'</td><td><input type="number" step="0.1" id="acMc'+i+'" value="'+m[1]+'" style="width:70px"></td><td><input type="number" step="0.1" id="acMh'+i+'" value="'+m[2]+'" style="width:70px"></td></tr>'; });
+  var h='<table><tr><th>機種</th><th>品番</th><th>電源</th><th>冷房 定格</th><th>冷房 最大</th><th>暖房 定格</th><th>暖房 最大</th></tr>';
+  var box=function(id,v){ return '<td><input type="number" step="0.1" id="'+id+'" value="'+v+'" style="width:64px"></td>'; };
+  AC_MODELS.forEach(function(m,i){ h+='<tr><td>'+m[0]+'</td><td>'+(m[4]||'<span class="hint">（比較用）</span>')+'</td><td>'+m[3]+'</td>'+box("acMc"+i,m[1])+box("acMcx"+i,m[5])+box("acMh"+i,m[2])+box("acMhx"+i,m[6])+'</tr>'; });
   $("acModels").innerHTML=h+'</table>';
   $("acModels").querySelectorAll("input").forEach(function(e){ e.oninput=accUpdate; });
+}
+/* シリーズを変える: 機種表と、ページに出すシリーズ名・ひとことを入れ替える */
+function accSetSeries(){
+  var S=AC_SERIES[$("accSeries").value]; AC_MODELS=S.models;
+  $("accMaker").value=S.maker; $("accPoint").value=S.point;
+  accDrawModels(); accUpdate();
 }
 (function(){
   [["accDrop","accIn",false],["accDrop4","accIn4",true]].forEach(function(x){
@@ -2872,6 +2893,7 @@ function accDrawModels(){
   });
   $("accLim").oninput=$("accJo").oninput=$("accMaker").oninput=$("accPoint").oninput=accUpdate;
   $("useAircon").onchange=function(){ $("tsAircon").textContent=this.checked?"入れる":""; };
+  $("accSeries").onchange=accSetSeries;
   accDrawModels(); accUpdate();
 })();
 
