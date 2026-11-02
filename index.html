@@ -86,7 +86,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
 </head>
 <body>
 <header>
-  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.12（更新日 2026-11-02）</span></h1>
+  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.13（更新日 2026-11-02）</span></h1>
   <div class="deck" id="deckName">提案書がまだ入っていません</div>
 </header>
 <div id="previewWarn" style="display:none;background:#FFF4E5;border-bottom:2px solid #E8862E;padding:14px 28px;font-size:14px;line-height:1.8">
@@ -764,6 +764,14 @@ async function buildRoom(d){
 
 /* ===== 健康評価ページ ===== */
 const starStr=n=>"★".repeat(n)+"☆".repeat(5-n);
+/* 4つの観点の根拠（公的資料・調査の数字）。行の順は d.rows と同じ
+   WHO住宅と健康ガイドライン2018／国交省SWH調査 中間報告2017（n=1,753・n=2,759）／消費者庁（人口動態統計 令和6年）／
+   伊香賀資料（国交省 住宅宅地分科会 2019.12.23 p.18 n=2,339・p.29 n=80） */
+const HEALTH_EVIDENCE=[
+  "WHOは冬の室温18℃以上を強く勧告しています。\n国の調査では、室温が10℃低い朝は血圧が7.3mmHg高い傾向です。",
+  "家の浴槽での溺死は年7,776人で、65歳以上が約95%。\n居間か脱衣所が18℃未満の家では、事故リスクの高い熱めの入浴が1.8倍です。",
+  "就寝前の室温が12℃未満の家では、18℃以上の家より、夜間頻尿など睡眠を妨げる症状が1.6倍です。",
+  "脱衣所が暖かい家の人は、要介護になる年齢が約4歳遅いという調査があります（80名の調査）。"];
 function buildHealth(d){
   const pal=palette(deckTheme()), main=pal.main;
   const oldIdx=purgeHidden("health",findSlide("health")), anchor=oldIdx!=null?oldIdx:findSlide("room");
@@ -771,23 +779,26 @@ function buildHealth(d){
   const ri=findSlide("room");
   headerFrom(b,headerSource(ri!=null?DECKX.slides[ri]:null),{kicker:"03｜暮らしのメリット",
     titleParts:[["同じ間取り・同じ暖房でも、","262626"],["冬の健康リスク",pal.hi],["はここまで違います","262626"]],
-    lead:"省エネ基準の住まいと、本プランを冬の4つの観点で比べました。",page:""});
-  const k=25.4/960, X=v=>v*k;
-  b.rect(X(386),X(152),X(268),X(302),pal.light);
-  b.label(X(386),X(166),X(268),X(22),[["本プラン",13,main,true]],"ctr");
-  b.label(X(386),X(191),X(268),X(14),[[`UA値 ${d.ua.toFixed(2)} ／ 断熱等性能等級${d.grade}`,8,"5D6066",false]],"ctr");
-  b.label(X(658),X(166),X(268),X(22),[["省エネ基準の住まい",13,"4F5459",true]],"ctr");
-  b.label(X(658),X(191),X(268),X(14),[[`UA値 ${d.uab.toFixed(2)} ／ 等級4`,8,"4F5459",false]],"ctr");
-  b.line(X(60),X(214),X(908),pal.line,1);
-  let y=232;
+    lead:"省エネ基準の住まいと、本プランを冬の4つの観点で比べました。",page:oldIdx!=null?pageOf(DECKX.slides[oldIdx]):""});
+  const k=25.4/960, X=v=>v*k, C1=540, C2=730, CW=186;
+  b.rect(X(C1),X(148),X(CW),X(284),pal.light);
+  b.label(X(C1),X(154),X(CW),X(22),[["本プラン",13,main,true]],"ctr");
+  b.label(X(C1),X(177),X(CW),X(14),[[`UA値 ${d.ua.toFixed(2)} ／ 等級${d.grade}`,8,"5D6066",false]],"ctr");
+  b.label(X(C2),X(154),X(CW),X(22),[["省エネ基準の住まい",13,"4F5459",true]],"ctr");
+  b.label(X(C2),X(177),X(CW),X(14),[[`UA値 ${d.uab.toFixed(2)} ／ 等級4`,8,"4F5459",false]],"ctr");
+  b.line(X(60),X(198),X(916),pal.line,1);
+  let y=202;
   d.rows.forEach(([name,sp,sb],i)=>{
-    b.label(X(70),X(y+8),X(300),X(26),[[name,12,"161616",false]]);
-    b.label(X(386),X(y+4),X(268),X(32),[[starStr(sp),19,main,false]],"ctr");
-    b.label(X(658),X(y+4),X(268),X(32),[[starStr(sb),19,"80858C",false]],"ctr");
-    if(i<3) b.line(X(60),X(y+46),X(908),pal.line);
+    b.label(X(70),X(y+3),X(450),X(24),[[name,12,"161616",true]]);
+    b.text(X(70),X(y+27),X(452),X(30),(HEALTH_EVIDENCE[i]||"").split("\n").map(t=>b.para([[t,8,"5D6066",false]])).join(""));
+    b.label(X(C1),X(y+12),X(CW),X(32),[[starStr(sp),17,main,false]],"ctr");
+    b.label(X(C2),X(y+12),X(CW),X(32),[[starStr(sb),17,"80858C",false]],"ctr");
+    if(i<3) b.line(X(60),X(y+57),X(916),pal.line);
     y+=58;
   });
-  b.text(X(60),X(480),X(848),X(34),b.para([[d.note,7.5,"7C8288",false]]));
+  b.text(X(60),X(440),X(856),X(70),b.para([[d.note,7.5,"7C8288",false]])+
+    b.para([["※ ★は室温データをもとにした本提案独自の目安で、医学的な診断や効果の保証ではありません。根拠の調査は傾向を示すもので、本プランでの効果を示すものではありません。",7.5,"7C8288",false]])+
+    b.para([["出典：WHO「住宅と健康に関するガイドライン」(2018)／国土交通省 断熱改修等による居住者の健康への影響調査 中間報告(2017)、住宅宅地分科会 資料(2019、伊香賀俊治)／消費者庁(厚生労働省 人口動態統計 令和6年)",7.5,"7C8288",false]]));
   return insertSlide(b,oldIdx,anchor,{title:"健康リスク",text:"健康リスク"});
 }
 
