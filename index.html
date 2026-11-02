@@ -2766,6 +2766,8 @@ async function accTakeFile(file,g4){
     (pick.length?'':' <span class="ng">部屋名に「LDK」を含む列がありません。下でLDKの列を選んでください。</span>');
   accGuessJo();
   accUpdate();
+  // CSVから機種が選べたら、ページを入れる（ほかのタブと同じく自動でチェック）
+  if(AC_LAST&&AC_LAST.pick){ $("useAircon").checked=true; $("tsAircon").textContent="入れる"; }
 }
 /* 2つのCSVの値がまったく同じか（本プランと同じファイルを等級4の欄に入れる間違いを防ぐ） */
 function accSame(a,b){
