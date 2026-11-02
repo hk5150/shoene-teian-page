@@ -86,7 +86,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
 </head>
 <body>
 <header>
-  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.10（更新日 2026-11-02）</span></h1>
+  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.11（更新日 2026-11-02）</span></h1>
   <div class="deck" id="deckName">提案書がまだ入っていません</div>
 </header>
 <div id="previewWarn" style="display:none;background:#FFF4E5;border-bottom:2px solid #E8862E;padding:14px 28px;font-size:14px;line-height:1.8">
@@ -283,7 +283,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
     <div id="accRooms" style="margin-bottom:10px;font-size:13px"></div>
     エアコンのシリーズ <select id="accSeries"><option value="AUTO" selected>自動（基本はN）</option><option value="N">Nシリーズに固定</option><option value="HX">HXシリーズに固定</option></select> 自動のとき、LDKの帖数とNの機種の畳数の差が <input type="number" step="0.5" id="accGap" value="3" style="width:50px"> 畳以内ならHXにする <span class="hint">（帖数が空欄なら切り替えません。Nの最大能力はELシリーズの値とみなしています）</span><br>
     足りない日の上限 <input type="number" id="accLim" value="10" style="width:60px"> 日／年 <span class="hint">（冷房・暖房とも、最大能力で足りない日がこれ以下で、落ち着いた後の負荷が定格に収まる、いちばん小さい機種を選びます）</span><br>
-    LDKの帖数 <input type="number" step="0.1" id="accJo" style="width:70px"> 帖 <span class="hint">（帖数どおりに選んだ場合との比較に使います。提案書に「LDK○帖」とあれば自動で入ります）</span><br>
+    LDKの帖数 <input type="number" step="0.1" id="accJo" value="20" style="width:70px"> 帖 <span class="hint">（初期値は20帖。機種の比較とシリーズの切り替えに使います。提案書に「LDK○帖」とあれば、その値が入ります）</span><br>
     おすすめの機種（ページに出す） <input type="text" id="accMaker" value="パナソニック エオリア Nシリーズ" style="width:260px"><br>
     機種のひとこと <input type="text" id="accPoint" value="ZEH対応のスタンダードモデル（住宅設備モデル）。サビや潮風に強い耐塩害仕様。" style="width:560px"> <span class="hint">（シリーズを変えると入れ替わります。品番は機種表から自動で入ります）</span>
   </div>
@@ -2797,13 +2797,13 @@ function accSame(a,b){
   if(!a||!b||a.cols.length!==b.cols.length||a.times.length!==b.times.length) return false;
   return a.cols.every(function(c,j){ var e=b.cols[j]; return c.every(function(v,i){ return v===e[i]; }); });
 }
-/* LDKの帖数: 部屋名や提案書の文字に「LDK 20.6帖」のようにあれば入れる（なければ手で） */
+/* LDKの帖数: 初期値は20帖。部屋名や提案書の文字に「LDK 20.6帖」のようにあれば、それを入れる（手で直したあとは変えない） */
 function accGuessJo(){
-  if(+$("accJo").value) return;
+  if($("accJo").dataset.touched) return;
   var src=(ACC?ACC.names.join(" "):"")+" "+(typeof DECKX!=="undefined"&&DECKX&&DECKX.slides?DECKX.slides.map(function(s){ return s.text; }).join(" "):"");
   // 「LDKはNシリーズ18畳用」のような機種名（○畳用）は帖数ではないので拾わない
   var m=nfkc(src).match(/LDK[\s:：（(約]{0,4}(\d+(?:\.\d+)?)\s*(帖|畳|J)(?!用)/);
-  if(m) $("accJo").value=+m[1];
+  $("accJo").value=m?+m[1]:20;
 }
 function accSelectedNames(){ return [].slice.call($("accRooms").querySelectorAll("input:checked")).map(function(e){ return ACC.names[+e.dataset.col]; }); }
 function accModels(){ return AC_MODELS.map(function(m,i){ return [m[0], +$("acMc"+i).value||m[1], +$("acMh"+i).value||m[2], m[3], m[4], +$("acMcx"+i).value||m[5], +$("acMhx"+i).value||m[6]]; }); }
@@ -2911,6 +2911,7 @@ function accSetSeries(){
   $("accLim").oninput=$("accJo").oninput=$("accGap").oninput=$("accMaker").oninput=$("accPoint").oninput=accUpdate;
   $("useAircon").onchange=function(){ $("tsAircon").textContent=this.checked?"入れる":""; };
   $("accSeries").onchange=accSetSeries;
+  $("accJo").addEventListener("input",function(){ this.dataset.touched="1"; });
   accDrawModels(); accUpdate();
 })();
 
