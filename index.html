@@ -86,7 +86,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
 </head>
 <body>
 <header>
-  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.8（更新日 2026-11-02）</span></h1>
+  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.9（更新日 2026-11-02）</span></h1>
   <div class="deck" id="deckName">提案書がまだ入っていません</div>
 </header>
 <div id="previewWarn" style="display:none;background:#FFF4E5;border-bottom:2px solid #E8862E;padding:14px 28px;font-size:14px;line-height:1.8">
@@ -281,7 +281,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
     <h2>2. LDKの列と条件</h2>
     <p class="sub">部屋名に「LDK」を含む列を最初から選んでいます。LDKが2列に分かれている・「LD」「リビング」などの名前のときは、チェックで選び直してください（複数選ぶと、時間ごとに足します）。</p>
     <div id="accRooms" style="margin-bottom:10px;font-size:13px"></div>
-    エアコンのシリーズ <select id="accSeries"><option value="N" selected>Nシリーズ（基本）</option><option value="HX">HXシリーズ（畳数を下げたいとき）</option></select> <span class="hint">（Nの最大能力はELシリーズの値とみなしています）</span><br>
+    エアコンのシリーズ <select id="accSeries"><option value="AUTO" selected>自動（基本はN）</option><option value="N">Nシリーズに固定</option><option value="HX">HXシリーズに固定</option></select> 自動のとき、LDKの帖数と機種の畳数が <input type="number" step="0.5" id="accGap" value="3" style="width:50px"> 畳以上離れたらHXにする <span class="hint">（帖数が空欄なら切り替えません。Nの最大能力はELシリーズの値とみなしています）</span><br>
     足りない日の上限 <input type="number" id="accLim" value="10" style="width:60px"> 日／年 <span class="hint">（冷房・暖房とも、最大能力で足りない日がこれ以下で、落ち着いた後の負荷が定格に収まる、いちばん小さい機種を選びます）</span><br>
     LDKの帖数 <input type="number" step="0.1" id="accJo" style="width:70px"> 帖 <span class="hint">（帖数どおりに選んだ場合との比較に使います。提案書に「LDK○帖」とあれば自動で入ります）</span><br>
     おすすめの機種（ページに出す） <input type="text" id="accMaker" value="パナソニック エオリア Nシリーズ" style="width:260px"><br>
@@ -2758,7 +2758,7 @@ var AC_SERIES={
     ["6畳用",2.2,2.5,"100V","CS-227DHX",3.6,5.8],["8畳用",2.5,2.8,"100V","CS-257DHX",3.7,6.2],["10畳用",2.8,3.6,"100V","CS-287DHX",4.5,7.1],["12畳用",3.6,4.2,"100V","CS-367DHX",4.8,7.1],
     ["14畳用",4.0,5.0,"200V","CS-407DHX2",5.8,11.5],["18畳用",5.6,6.7,"200V","CS-567DHX2",6.2,11.5],["20畳用",6.3,7.1,"200V","CS-637DHX2",6.8,11.5],["23畳用",7.1,8.5,"200V","CS-717DHX2",7.4,11.5],["26畳用",8.0,9.5,"200V","CS-807DHX2",8.2,11.5],["29畳用",9.0,10.6,"200V","CS-907DHX2",9.1,11.8]]}
 };
-var AC_MODELS=AC_SERIES.N.models;
+var AC_MODELS=AC_SERIES.N.models, AC_ACTIVE="N";
 var ACC=null, ACC4=null;   // { file, names, times, cols[i]=8,760時間の値（Wh） }
 var AC_LAST=null;
 
@@ -2837,16 +2837,34 @@ function accRun(D,names,lim,models){
   var rows=(models||accModels()).map(function(m){ return { m:m, c:accShort(cool,m[5],D.times), h:accShort(heat,m[6],D.times), steady:m[1]>=cool.maxRun&&m[2]>=heat.maxRun }; });
   return { heat:heat, cool:cool, rows:rows, pick:rows.find(function(r){ return r.c.days<=lim && r.h.days<=lim && r.steady; })||null, times:D.times };
 }
+/* どのシリーズで選ぶか。自動のときはNで選び、LDKの帖数と機種の畳数が○畳以上離れる・Nに機種がないときはHXにする */
+function accDecide(names,lim,jo){
+  var mode=$("accSeries").value, why="";
+  if(mode!=="AUTO") return {series:mode, why:why};
+  var rN=accRun(ACC,names,lim,AC_SERIES.N.models), p=rN&&rN.pick, gap=+$("accGap").value; if(!(gap>=0)) gap=3;
+  if(!p||!p.m[4]) return {series:"HX", why:"Nシリーズに条件に合う機種がないので、HXシリーズで選びました。"};
+  var d=jo?Math.abs(parseFloat(p.m[0])-jo):0;
+  if(jo&&d>=gap) return {series:"HX", why:"LDK "+jo+"帖とN "+p.m[0]+"の差が"+(Math.round(d*10)/10)+"畳（"+gap+"畳以上）なので、HXシリーズで選びました。"};
+  return {series:"N", why:why};
+}
+function accUseSeries(name){
+  if(name===AC_ACTIVE) return;
+  AC_ACTIVE=name; AC_MODELS=AC_SERIES[name].models;
+  $("accMaker").value=AC_SERIES[name].maker; $("accPoint").value=AC_SERIES[name].point;
+  accDrawModels();
+}
 function accCalc(){
   if(!ACC) return null;
   var names=accSelectedNames(); if(!names.length) return null;
   var lim=+$("accLim").value; if(!(lim>=0)) lim=10;
+  var jo=+$("accJo").value||0, dec=accDecide(names,lim,jo);
+  accUseSeries(dec.series);
   var r=accRun(ACC,names,lim); if(!r) return null;
-  var jo=+$("accJo").value||0;
+  r.why=dec.why;
   r.room=names.join("＋"); r.lim=lim; r.jo=jo;
   r.byJo=jo?r.rows.find(function(x){ return parseFloat(x.m[0])>=jo; })||r.rows[r.rows.length-1]:null;
   r.g4=ACC4?accRun(ACC4,names,lim):null;
-  r.series=$("accSeries").value;
+  r.series=AC_ACTIVE;
   r.other=accRun(ACC,names,lim,AC_SERIES[r.series==="N"?"HX":"N"].models);
   r.maker=$("accMaker").value.trim(); r.point=$("accPoint").value.trim();
   return r;
@@ -2858,7 +2876,8 @@ function accUpdate(){
   var st=function(nm,s){ return '<tr><td>'+nm+'</td><td>'+n(s.hrs)+' 時間</td><td>'+f2(s.max)+' kW <span class="hint">（'+(s.maxAt>=0?accLabel(r.times[s.maxAt]):"—")+'）</span></td><td>'+f2(s.maxRun)+' kW</td><td>'+f2(s.p99)+' kW</td><td>'+n(s.kwh)+' kWh</td></tr>'; };
   var h=(r.pick?'<div style="font-size:16px"><b>おすすめ <span class="ok">'+r.pick.m[0]+'</span></b>（冷房 '+r.pick.m[1].toFixed(1)+'kW ／ 暖房 '+r.pick.m[2].toFixed(1)+'kW・'+accVolt(r.pick.m)+(r.pick.m[4]?'・'+r.pick.m[4]:'')+'）　足りない日 冷房 '+r.pick.c.days+'日（'+r.pick.c.h+'h） ／ 暖房 '+r.pick.h.days+'日（'+r.pick.h.h+'h）</div>'
       :'<div class="ng"><b>条件に合う機種がありません（足りない日が '+r.lim+' 日を超えるか、落ち着いた後の負荷が定格を超えます）。</b>機種表・上限を見直してください（このままではページを作りません）。</div>')+
-    (r.pick&&!r.pick.m[4]?'<div class="ng" style="margin-top:4px">⚠ '+r.pick.m[0]+'はNシリーズにありません（18畳用まで）。ページには「範囲外」と出ます。シリーズをHXに変えると品番が入ります。</div>':'')+
+    (r.why?'<div style="margin-top:4px"><b>'+r.why+'</b></div>':'')+
+    (r.pick&&!r.pick.m[4]?'<div class="ng" style="margin-top:4px">⚠ '+r.pick.m[0]+'はNシリーズにありません（18畳用まで）。ページには「範囲外」と出ます。シリーズをHXにすると品番が入ります。</div>':'')+
     (r.other&&r.other.pick?'<div style="margin-top:4px">'+(r.series==="N"?"HX":"N")+'シリーズなら <b>'+r.other.pick.m[0]+'</b>（'+r.other.pick.m[4]+'・足りない日 冷房 '+r.other.pick.c.days+'日 ／ 暖房 '+r.other.pick.h.days+'日）</div>':'')+
     (r.byJo?'<div style="margin-top:4px">LDKの帖数（'+r.jo+'帖）どおりに選ぶと <b>'+r.byJo.m[0]+'</b>（'+accVolt(r.byJo.m)+'）</div>':'<div class="hint" style="margin-top:4px">LDKの帖数を入れると、帖数どおりに選んだ場合と比べられます。</div>')+
     (r.g4?'<div style="margin-top:4px">断熱等級4（比較プラン）なら <b>'+(r.g4.pick?r.g4.pick.m[0]:"どの機種でも足りない")+'</b>'+(r.g4.pick?'（足りない日 冷房 '+r.g4.pick.c.days+'日 ／ 暖房 '+r.g4.pick.h.days+'日）':'')+'</div>':'')+
@@ -2877,11 +2896,9 @@ function accDrawModels(){
   $("acModels").innerHTML=h+'</table>';
   $("acModels").querySelectorAll("input").forEach(function(e){ e.oninput=accUpdate; });
 }
-/* シリーズを変える: 機種表と、ページに出すシリーズ名・ひとことを入れ替える */
+/* シリーズの選択を変える（自動のときは accCalc の中で決まる） */
 function accSetSeries(){
-  var S=AC_SERIES[$("accSeries").value]; AC_MODELS=S.models;
-  $("accMaker").value=S.maker; $("accPoint").value=S.point;
-  accDrawModels(); accUpdate();
+  var v=$("accSeries").value; accUseSeries(v==="AUTO"?"N":v); accUpdate();
 }
 (function(){
   [["accDrop","accIn",false],["accDrop4","accIn4",true]].forEach(function(x){
@@ -2891,7 +2908,7 @@ function accSetSeries(){
     box.ondragover=function(e){ e.preventDefault(); };
     box.ondrop=function(e){ e.preventDefault(); var f=e.dataTransfer.files[0]; if(f) accTakeFile(f,x[2]); };
   });
-  $("accLim").oninput=$("accJo").oninput=$("accMaker").oninput=$("accPoint").oninput=accUpdate;
+  $("accLim").oninput=$("accJo").oninput=$("accGap").oninput=$("accMaker").oninput=$("accPoint").oninput=accUpdate;
   $("useAircon").onchange=function(){ $("tsAircon").textContent=this.checked?"入れる":""; };
   $("accSeries").onchange=accSetSeries;
   accDrawModels(); accUpdate();
