@@ -86,7 +86,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
 </head>
 <body>
 <header>
-  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.9（更新日 2026-11-02）</span></h1>
+  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.10（更新日 2026-11-02）</span></h1>
   <div class="deck" id="deckName">提案書がまだ入っていません</div>
 </header>
 <div id="previewWarn" style="display:none;background:#FFF4E5;border-bottom:2px solid #E8862E;padding:14px 28px;font-size:14px;line-height:1.8">
@@ -281,7 +281,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
     <h2>2. LDKの列と条件</h2>
     <p class="sub">部屋名に「LDK」を含む列を最初から選んでいます。LDKが2列に分かれている・「LD」「リビング」などの名前のときは、チェックで選び直してください（複数選ぶと、時間ごとに足します）。</p>
     <div id="accRooms" style="margin-bottom:10px;font-size:13px"></div>
-    エアコンのシリーズ <select id="accSeries"><option value="AUTO" selected>自動（基本はN）</option><option value="N">Nシリーズに固定</option><option value="HX">HXシリーズに固定</option></select> 自動のとき、LDKの帖数と機種の畳数が <input type="number" step="0.5" id="accGap" value="3" style="width:50px"> 畳以上離れたらHXにする <span class="hint">（帖数が空欄なら切り替えません。Nの最大能力はELシリーズの値とみなしています）</span><br>
+    エアコンのシリーズ <select id="accSeries"><option value="AUTO" selected>自動（基本はN）</option><option value="N">Nシリーズに固定</option><option value="HX">HXシリーズに固定</option></select> 自動のとき、LDKの帖数とNの機種の畳数の差が <input type="number" step="0.5" id="accGap" value="3" style="width:50px"> 畳以内ならHXにする <span class="hint">（帖数が空欄なら切り替えません。Nの最大能力はELシリーズの値とみなしています）</span><br>
     足りない日の上限 <input type="number" id="accLim" value="10" style="width:60px"> 日／年 <span class="hint">（冷房・暖房とも、最大能力で足りない日がこれ以下で、落ち着いた後の負荷が定格に収まる、いちばん小さい機種を選びます）</span><br>
     LDKの帖数 <input type="number" step="0.1" id="accJo" style="width:70px"> 帖 <span class="hint">（帖数どおりに選んだ場合との比較に使います。提案書に「LDK○帖」とあれば自動で入ります）</span><br>
     おすすめの機種（ページに出す） <input type="text" id="accMaker" value="パナソニック エオリア Nシリーズ" style="width:260px"><br>
@@ -2837,14 +2837,14 @@ function accRun(D,names,lim,models){
   var rows=(models||accModels()).map(function(m){ return { m:m, c:accShort(cool,m[5],D.times), h:accShort(heat,m[6],D.times), steady:m[1]>=cool.maxRun&&m[2]>=heat.maxRun }; });
   return { heat:heat, cool:cool, rows:rows, pick:rows.find(function(r){ return r.c.days<=lim && r.h.days<=lim && r.steady; })||null, times:D.times };
 }
-/* どのシリーズで選ぶか。自動のときはNで選び、LDKの帖数と機種の畳数が○畳以上離れる・Nに機種がないときはHXにする */
+/* どのシリーズで選ぶか。自動のときはNで選び、LDKの帖数と機種の畳数の差が○畳以内（畳数があまり下がらない）・Nに機種がないときはHXにする */
 function accDecide(names,lim,jo){
   var mode=$("accSeries").value, why="";
   if(mode!=="AUTO") return {series:mode, why:why};
   var rN=accRun(ACC,names,lim,AC_SERIES.N.models), p=rN&&rN.pick, gap=+$("accGap").value; if(!(gap>=0)) gap=3;
   if(!p||!p.m[4]) return {series:"HX", why:"Nシリーズに条件に合う機種がないので、HXシリーズで選びました。"};
   var d=jo?Math.abs(parseFloat(p.m[0])-jo):0;
-  if(jo&&d>=gap) return {series:"HX", why:"LDK "+jo+"帖とN "+p.m[0]+"の差が"+(Math.round(d*10)/10)+"畳（"+gap+"畳以上）なので、HXシリーズで選びました。"};
+  if(jo&&d<=gap) return {series:"HX", why:"LDK "+jo+"帖とN "+p.m[0]+"の差が"+(Math.round(d*10)/10)+"畳（"+gap+"畳以内）なので、HXシリーズで選びました。"};
   return {series:"N", why:why};
 }
 function accUseSeries(name){
