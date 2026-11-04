@@ -86,7 +86,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
 </head>
 <body>
 <header>
-  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.15（更新日 2026-11-04）</span></h1>
+  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.16（更新日 2026-11-04）</span></h1>
   <div class="deck" id="deckName">提案書がまだ入っていません</div>
 </header>
 <div id="previewWarn" style="display:none;background:#FFF4E5;border-bottom:2px solid #E8862E;padding:14px 28px;font-size:14px;line-height:1.8">
@@ -108,6 +108,10 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
 </div>
 <div id="pdfInfo" class="hint" style="margin:-6px 0 12px"></div>
 <div class="board" style="padding:10px 16px">
+  <b>仕様</b>　<select id="specSel"><option value="GX" selected>GX志向型住宅</option><option value="ZEH">ZEH水準住宅</option></select>
+  <span class="hint">（元のGX版の提案書を入れてZEH水準住宅を選ぶと、表紙・説明・等級・補助金の文言を書き換えます）</span><br>
+  <b>本プランの性能</b>　UA値 <input type="text" id="perfUa" placeholder="0.56" style="width:56px">　ηAC値 <input type="text" id="perfEta" placeholder="1.3" style="width:50px">　一次エネ消費量 <input type="text" id="perfGj" placeholder="43.3" style="width:56px"> GJ/年　削減率 <input type="text" id="perfRate" placeholder="25" style="width:46px"> %
+  <span class="hint">（入れたものだけ表紙と性能のページに反映します。空欄の項目は提案書の数字のままです）</span><br>
   <b>表紙に入れる文字</b>　会社名 <input type="text" id="coverCompany" placeholder="例：株式会社○○" style="width:220px">　物件名・表記 <input type="text" id="coverProp" placeholder="例：○○市○○1号地 ／ 標準仕様" style="width:300px">
   <span class="hint">（どちらも任意。PDFを入れると建物名から入ります。空欄なら表紙に足しません。物件名の代わりに「標準仕様」など自由に書けます）</span>
 </div>
@@ -876,6 +880,94 @@ function buildDrop(d){
   return insertSlide(b,oldIdx,anchor,{title:"室温降下予測",text:"室温降下"});
 }
 
+/* ===== 仕様の切り替え: GX志向型住宅の提案書を、ZEH水準住宅の提案書に書き換える =====
+   元の提案書はGX仕様。文字は書き換え、画像に入っている文字（2・3ページ）は白い四角で隠して上に書く */
+const SPEC={GX:{name:"GX志向型住宅",ins:6,pe:8},ZEH:{name:"ZEH水準住宅",ins:5,pe:6}};
+function deckSpec(){ const c=coverShapes(), k=c&&c.by("cover-kicker"); return k&&/ZEH/.test(k.textContent)?"ZEH":"GX"; }
+function slideByTitle(re){ return DECKX.slides.find(s=>s.doc&&re.test(s.title||"")); }
+function spOf(sl,name){ return [...sl.doc.getElementsByTagName("p:sp")].find(e=>nameOf(e)===name); }
+/* 図形の文字を1つにまとめて書き換える（書式は最初のランのまま） */
+function setSpText(sp,text){
+  const ts=[...sp.getElementsByTagName("a:t")]; if(!ts.length) return false;
+  ts[0].textContent=text; ts.slice(1).forEach(t=>{ t.textContent=""; });
+  return true;
+}
+/* 見出しの説明文の図形を写して、文字や白い四角を足す */
+function addSpFrom(sl,name,x,y,w,h,text,o){
+  const src=spOf(sl,"hdr-lead"); if(!src) return;
+  const sp=src.cloneNode(true), ids=[...sl.doc.getElementsByTagName("p:cNvPr")].map(e=>+e.getAttribute("id")||0);
+  const pr=sp.getElementsByTagName("p:cNvPr")[0]; pr.setAttribute("id",Math.max(...ids)+1); pr.setAttribute("name",name);
+  const xf=sp.getElementsByTagName("a:xfrm")[0], off=xf.getElementsByTagName("a:off")[0], ext=xf.getElementsByTagName("a:ext")[0];
+  off.setAttribute("x",x); off.setAttribute("y",y); ext.setAttribute("cx",w); ext.setAttribute("cy",h);
+  const runs=[...sp.getElementsByTagName("a:r")]; runs.slice(1).forEach(r=>r.parentNode.removeChild(r));
+  const rp=runs[0].getElementsByTagName("a:rPr")[0];
+  runs[0].getElementsByTagName("a:t")[0].textContent=text;
+  rp.setAttribute("sz",Math.round((o.sz||10)*100)); rp.setAttribute("b",o.bold?"1":"0");
+  const col=rp.getElementsByTagName("a:srgbClr")[0]; if(col) col.setAttribute("val",o.color||"404040");
+  if(o.align){ const pp=sp.getElementsByTagName("a:pPr")[0]; if(pp) pp.setAttribute("algn",o.align); else { const pa=sp.getElementsByTagName("a:p")[0], np=sl.doc.createElementNS(NS_A,"a:pPr"); np.setAttribute("algn",o.align); pa.insertBefore(np,pa.firstChild); } }
+  if(o.anchor) sp.getElementsByTagName("a:bodyPr")[0].setAttribute("anchor",o.anchor);
+  if(o.fill){ const spPr=sp.getElementsByTagName("p:spPr")[0], nf=[...spPr.childNodes].find(n=>n.nodeName==="a:noFill");
+    const sf=sl.doc.createElementNS(NS_A,"a:solidFill"), c=sl.doc.createElementNS(NS_A,"a:srgbClr"); c.setAttribute("val",o.fill); sf.appendChild(c);
+    if(nf) spPr.replaceChild(sf,nf); }
+  sl.doc.getElementsByTagName("p:spTree")[0].appendChild(sp);
+}
+function convertToZeh(){
+  if(deckSpec()==="ZEH") return false;
+  const n=SPEC.ZEH.name;
+  // 全ページの「GX志向型住宅」を置き換え
+  DECKX.slides.forEach(sl=>{ if(!sl.doc) return; let ch=false;
+    for(const t of sl.doc.getElementsByTagName("a:t")){ if(t.textContent.includes("GX志向型住宅")){ t.textContent=t.textContent.split("GX志向型住宅").join(n); ch=true; } }
+    if(ch){ sl.dirty=true; sl.title=(sl.title||"").split("GX志向型住宅").join(n); sl.text=(sl.text||"").split("GX志向型住宅").join(n); } });
+  // 2ページ: 住宅の説明
+  const p2=DECKX.slides.find(s=>s.doc&&(s.title||"").includes("「"+n+"」"));
+  if(p2){ const lead=spOf(p2,"hdr-lead"); if(lead) setSpText(lead,"断熱等性能等級5以上・一次エネルギー消費量等級6以上を満たす、高い省エネ性能の住宅です。");
+    addSpFrom(p2,"zeh-cover",1150000,2700000,2810000,1560000,"",{fill:"FFFFFF"});
+    addSpFrom(p2,"zeh-name",1252000,2730000,2700000,300000,n,{sz:14});
+    addSpFrom(p2,"zeh-text",1252000,3060000,2680000,1150000,"「ZEH（ゼッチ）」はネット・ゼロ・エネルギー・ハウスの略です。ZEH水準住宅は、断熱を強化し、高効率な設備で、エネルギーの消費を省エネ基準より20%以上減らした住まいです。国は、2030年度以降の新築住宅でこの水準の確保を目指しています。",{sz:10});
+    p2.dirty=true; }
+  // 3ページ: 画像の見出し
+  const p3=slideByTitle(/3つの価値/);
+  if(p3){ addSpFrom(p3,"zeh-head",1500000,1630000,6144000,420000,n+"が提供する、3つの価値。",{sz:20,bold:true,align:"ctr",anchor:"ctr",fill:"FFFFFF"}); p3.dirty=true; }
+  // 4ページ: 等級の印を1段下げる（断熱 等級6→5、一次エネ 等級8→6）。行の間隔は印どうしの高さの差
+  const p4=slideByTitle(/上位等級/);
+  if(p4){ const marks=[...p4.doc.getElementsByTagName("p:sp")].filter(e=>/flowChartTerminator/.test(new XMLSerializer().serializeToString(e.getElementsByTagName("p:spPr")[0])));
+    if(marks.length===2){ const off=e=>e.getElementsByTagName("a:off")[0], ys=marks.map(e=>+off(e).getAttribute("y")), d=Math.abs(ys[0]-ys[1]);
+      marks.forEach((e,i)=>off(e).setAttribute("y",ys[i]+d)); }
+    const lead=spOf(p4,"hdr-lead"); if(lead) setSpText(lead,"断熱等性能等級5・一次エネルギー消費量等級6。ZEH水準住宅の基準をクリアしています。");
+    p4.dirty=true; }
+  // 5ページ: 等級の数字（左＝断熱、右＝一次エネ）
+  const p5=slideByTitle(/数値で裏付け/);
+  if(p5){ const one=[...p5.doc.getElementsByTagName("p:sp")].filter(e=>nameOf(e)!=="hdr-page"&&/^[0-9０-９]$/.test(e.textContent.trim())).sort((a,b)=>+a.getElementsByTagName("a:off")[0].getAttribute("x")-+b.getElementsByTagName("a:off")[0].getAttribute("x"));
+    if(one.length===2){ setSpText(one[0],"５"); setSpText(one[1],"６"); }
+    addSpFrom(p5,"zeh-head",1500000,1610000,6144000,400000,"高い基本性能が、未来の快適と経済性の礎を築きます。",{sz:16,bold:true,color:"262626",align:"ctr",anchor:"ctr",fill:"FFFFFF"});
+    p5.dirty=true; }
+  // 健康リスクのページの等級表記
+  const ph=DECKX.slides.find(s=>s.doc&&s.text&&s.text.includes("健康リスク"));
+  if(ph){ for(const t of ph.doc.getElementsByTagName("a:t")){ if(/断熱等性能等級6/.test(t.textContent)){ t.textContent=t.textContent.replace("断熱等性能等級6","断熱等性能等級5"); ph.dirty=true; } else if(/UA値.*等級6/.test(t.textContent)){ t.textContent=t.textContent.replace("等級6","等級5"); ph.dirty=true; } } }
+  // 補助金のページ
+  const ps=slideByTitle(/補助金の対象/);
+  if(ps){ const lead=spOf(ps,"hdr-lead"); if(lead){ setSpText(lead,"本仕様はZEH水準住宅の補助要件を満たす想定です。予算枠・申請時期は最新情報をご確認ください。"); ps.dirty=true; } }
+  // 表紙の等級
+  const c=coverShapes(), st=c&&c.by("cover-stat0");
+  if(st){ const ts=[...st.getElementsByTagName("a:t")], d=ts.find(t=>/^\s*[0-9０-９]\s*$/.test(t.textContent)); if(d){ d.textContent="5"; c.sl.dirty=true; } }
+  return true;
+}
+/* 本プランの性能（入れたものだけ書き換える）: 表紙の削減率、5ページの数字と説明文、健康リスクのUA値 */
+function applyPerf(v){
+  let n=0;
+  const p5=slideByTitle(/数値で裏付け/);
+  if(p5){ const sps=[...p5.doc.getElementsByTagName("p:sp")], find=re=>sps.find(e=>re.test(e.textContent.trim()));
+    const put=(re,val)=>{ if(!val) return; const e=find(re); if(e&&setSpText(e,val)){ n++; p5.dirty=true; } };
+    put(/^\d\.\d\d$/,v.ua); put(/^\d\.\d$/,v.eta); put(/^\d+(\.\d+)?%$/,v.rate?v.rate+"%":""); put(/GJ\/year$/,v.gj?v.gj+" GJ/year":"");
+    const lead=spOf(p5,"hdr-lead");
+    if(lead&&(v.ua||v.rate)){ const a=[...lead.getElementsByTagName("a:t")].map(t=>t.textContent).join(""), m=a.match(/UA値([\d.]+)、一次エネルギー消費量の削減率([\d.]+)%(.*)$/);
+      if(m){ setSpText(lead,"UA値"+(v.ua||m[1])+"、一次エネルギー消費量の削減率"+(v.rate||m[2])+"%"+m[3]); p5.dirty=true; } } }
+  const c=coverShapes(), s1=c&&c.by("cover-stat1");
+  if(v.rate&&s1){ const nums=[...s1.getElementsByTagName("a:t")].filter(t=>/^\s*[\d.]+\s*$/.test(t.textContent)); if(nums.length){ nums[0].textContent=v.rate; nums.slice(1).forEach(t=>{ t.textContent=""; }); c.sl.dirty=true; n++; } }
+  const ph=DECKX.slides.find(s=>s.doc&&s.text&&s.text.includes("健康リスク"));
+  if(v.ua&&ph){ for(const t of ph.doc.getElementsByTagName("a:t")){ if(/^UA値\s*0\.\d+\s*／\s*(断熱等性能)?等級[5-7]/.test(t.textContent)){ t.textContent=t.textContent.replace(/0\.\d+/,v.ua); ph.dirty=true; break; } } }
+  return n>0;
+}
 /* 表紙の「会社名 ｜ 物件名（標準仕様など任意）」。白い枠の中、説明文の下に1行入れる（2回目は同じ図形を書き換える） */
 const COVER_SEP="　｜　";
 function coverShapes(){
@@ -2432,6 +2524,12 @@ function splitBuilding(s){
   var m=s.match(/^(\S*(?:株式会社|有限会社|合同会社|\(株\)|（株）)\S*) (.+)$/);
   return m?{company:m[1],prop:m[2]}:{company:"",prop:s};
 }
+/* 仕様（GX／ZEH水準）: 室温ページの「本プラン」の補足も合わせる */
+function specChanged(){
+  var v=$("specSel").value, nm=SPEC[v].name;
+  $("planSub").value=$("planSub").value.split("GX志向型住宅").join(nm).split("ZEH水準住宅").join(nm);
+  if(typeof scheduleRender==="function") scheduleRender();
+}
 function applyPdf(){
   checkLots();
   if(!PDFDATA) return;
@@ -2995,10 +3093,12 @@ function accSetSeries(){
 })();
 
 /* ---- 提案書を読み込む ---- */
+$("specSel").onchange=specChanged;
 ["coverCompany","coverProp"].forEach(function(id){ $(id).addEventListener("input",function(){ this.dataset.touched="1"; }); });
 async function openDeck(file){
   DECKFILE=file;
   await loadDeck(file);
+  $("specSel").value=deckSpec(); specChanged();
   var ci=readCoverInfo(); if(ci) coverSet(ci.company,ci.prop);
   $("deckName").textContent="提案書: "+file.name;
   $("deckDrop").innerHTML='<b>'+file.name+'</b> を読み込みました <span class="hint">（別の提案書にするときは、ここにドラッグ）</span><input type="file" id="deckIn" accept=".pptx" style="display:none">';
@@ -3079,12 +3179,17 @@ $("buildBtn").onclick=async function(){
   var doDrop=PDFDATA&&PDFDATA.drop&&$("useDrop").checked, doSolar=$("useSolar").checked, doAircon=$("useAircon").checked&&AC_LAST&&AC_LAST.pick;
   if(doSolar && !(+$("sol_t1").value && +$("sol_t2").value && +$("sol_t3").value && +$("sol_init").value)){ alert("太陽光: ①②③と設置費用を入れてください。"); tabTo("solar"); return; }
   if($("useAircon").checked && !doAircon){ alert(AC_LAST?"エアコン選定: どの機種でも、足りない時間が上限を超えます。機種表か上限を見直してください。":"エアコン選定: 暖冷房負荷_全熱.csv を入れて、LDKの列を選んでください。"); tabTo("aircon"); return; }
+  var specV=$("specSel").value, perf={ua:$("perfUa").value.trim(),eta:$("perfEta").value.trim(),gj:$("perfGj").value.trim(),rate:$("perfRate").value.trim()};
+  if(specV==="GX" && deckSpec()==="ZEH"){ alert("この提案書はZEH水準版です。GX版にするときは、元のGX版の提案書を入れてください。"); return; }
+  var doSpec=(specV==="ZEH"&&deckSpec()!=="ZEH")||!!(perf.ua||perf.eta||perf.gj||perf.rate);
   var coverC=$("coverCompany").value.trim(), coverP=$("coverProp").value.trim(), doCoverInfo=!!(coverC||coverP||(readCoverInfo()));
-  if(!doCost&&!doRoom&&!doHealth&&!doDrop&&!doSolar&&!doAircon&&!doCoverInfo){ alert("入れたいページにチェックを付けてください。"); return; }
+  if(!doCost&&!doRoom&&!doHealth&&!doDrop&&!doSolar&&!doAircon&&!doCoverInfo&&!doSpec){ alert("入れたいページにチェックを付けてください。"); return; }
   $("buildBtn").disabled=true; $("bmsg").textContent="作成中…";
   try{
     await loadDeck(DECKFILE);   // 毎回、元の提案書から作り直す
     var made=[];
+    if(specV==="ZEH" && convertToZeh()) made.push("ZEH水準版への書き換え");
+    if(applyPerf(perf)) made.push("本プランの性能値");
     if(doCoverInfo){ if(updateCoverInfo(coverC,coverP)) made.push("表紙の会社名・物件名"); else alert("この提案書の表紙の形では、会社名・物件名を入れられませんでした。"); }
     if(doCost){ buildCost(COSTD); made.push("光熱費");
       if(PDFDATA && $("useCover").checked && updateCoverAmount(COSTD.cmp_total-COSTD.des_total)) made.push("表紙の金額"); }
