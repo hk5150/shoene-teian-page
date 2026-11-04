@@ -86,7 +86,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
 </head>
 <body>
 <header>
-  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.14（更新日 2026-11-04）</span></h1>
+  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.15（更新日 2026-11-04）</span></h1>
   <div class="deck" id="deckName">提案書がまだ入っていません</div>
 </header>
 <div id="previewWarn" style="display:none;background:#FFF4E5;border-bottom:2px solid #E8862E;padding:14px 28px;font-size:14px;line-height:1.8">
@@ -107,6 +107,10 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
   <input type="file" id="pdfIn" accept=".pdf" style="display:none">
 </div>
 <div id="pdfInfo" class="hint" style="margin:-6px 0 12px"></div>
+<div class="board" style="padding:10px 16px">
+  <b>表紙に入れる文字</b>　会社名 <input type="text" id="coverCompany" placeholder="例：株式会社○○" style="width:220px">　物件名・表記 <input type="text" id="coverProp" placeholder="例：○○市○○1号地 ／ 標準仕様" style="width:300px">
+  <span class="hint">（どちらも任意。PDFを入れると建物名から入ります。空欄なら表紙に足しません。物件名の代わりに「標準仕様」など自由に書けます）</span>
+</div>
 <div class="tabs">
   <div class="tab on" data-tab="cost">光熱費<span class="st" id="tsCost"></span></div>
   <div class="tab" data-tab="room">室温<span class="st" id="tsRoom"></span></div>
@@ -872,6 +876,54 @@ function buildDrop(d){
   return insertSlide(b,oldIdx,anchor,{title:"室温降下予測",text:"室温降下"});
 }
 
+/* 表紙の「会社名 ｜ 物件名（標準仕様など任意）」。白い枠の中、説明文の下に1行入れる（2回目は同じ図形を書き換える） */
+const COVER_SEP="　｜　";
+function coverShapes(){
+  const sl=DECKX.slides[0]; if(!sl||!sl.doc) return null;
+  const sps=[...sl.doc.getElementsByTagName("p:sp")], by=n=>sps.find(e=>nameOf(e)===n);
+  return {sl, by};
+}
+function readCoverInfo(){
+  const c=coverShapes(), info=c&&c.by("cover-info"); if(!info) return null;
+  const parts=[...info.getElementsByTagName("a:t")].map(t=>t.textContent).join("").split(COVER_SEP);
+  return parts.length>1?{company:parts[0],prop:parts[1]}:{company:"",prop:parts[0]};
+}
+function updateCoverInfo(company,prop){
+  const c=coverShapes(); if(!c) return false;
+  const sub=c.by("cover-sub"), panel=c.by("cover-panel"), kicker=c.by("cover-kicker"); if(!sub||!panel) return false;
+  let info=c.by("cover-info");
+  if(!company&&!prop){   // 空欄にしたら、1行を消してラベルも元に戻す
+    if(!info) return false;
+    info.parentNode.removeChild(info);
+    if(kicker){ const t=kicker.getElementsByTagName("a:t"); if(t.length===1 && !/標準仕様/.test(t[0].textContent)) t[0].textContent+=" 標準仕様"; }
+    c.sl.dirty=true; return true;
+  }
+  if(!info){
+    info=sub.cloneNode(true);
+    const ids=[...c.sl.doc.getElementsByTagName("p:cNvPr")].map(e=>+e.getAttribute("id")||0);
+    const pr=info.getElementsByTagName("p:cNvPr")[0]; pr.setAttribute("id",Math.max(...ids)+1); pr.setAttribute("name","cover-info");
+    sub.parentNode.insertBefore(info,sub.nextSibling);
+  }
+  // 文字は1ランにまとめる
+  const runs=[...info.getElementsByTagName("a:r")];
+  runs.slice(1).forEach(r=>r.parentNode.removeChild(r));
+  const r=runs[0], rp=r.getElementsByTagName("a:rPr")[0];
+  r.getElementsByTagName("a:t")[0].textContent=[company,prop].filter(Boolean).join(COVER_SEP);
+  rp.setAttribute("sz","1400"); rp.setAttribute("b","1");
+  const col=rp.getElementsByTagName("a:srgbClr")[0]; if(col) col.setAttribute("val","262626");
+  // 位置: 説明文の下（ロゴがある表紙はロゴの下）。白い枠も伸ばす
+  const box=e=>{ const x=e.getElementsByTagName("a:xfrm")[0]; return {off:x.getElementsByTagName("a:off")[0], ext:x.getElementsByTagName("a:ext")[0]}; };
+  const pics=[...c.sl.doc.getElementsByTagName("p:pic")], logo=pics.find(e=>nameOf(e)==="company-logo-cover");
+  const sb=box(sub), pb=box(panel), ib=box(info), H=320000;
+  const low=logo?box(logo):sb, y=+low.off.getAttribute("y")+(+low.ext.getAttribute("cy"))+(logo?40000:30000);
+  ib.off.setAttribute("y",y); ib.ext.setAttribute("cy",H);
+  const py=+pb.off.getAttribute("y"), need=y+H+110000-py;
+  if(+pb.ext.getAttribute("cy")<need) pb.ext.setAttribute("cy",need);
+  // 「標準仕様」などは新しい行に書くので、上のラベルからは外す（同じ言葉が2回出ないように）
+  if(kicker){ const t=kicker.getElementsByTagName("a:t"); if(t.length===1) t[0].textContent=t[0].textContent.replace(/\s*標準仕様\s*$/,""); }
+  c.sl.dirty=true;
+  return true;
+}
 function updateCoverAmount(total){
   // 表紙の「年間 約16.8万円」。文字が「約」「16.8」「万円」のように分かれて入っていることがあるので、段落ごとに見る
   const sl=DECKX.slides[0]; if(!sl||!sl.doc) return false;
@@ -2370,9 +2422,20 @@ function checkLots(){
   $("pdfInfo").innerHTML=PDFDATA?('<b>PDF:</b> '+(PDFDATA.building||PDFDATA.file)+(msgs.length?' <span class="ng">⚠ '+msgs.join(" ")+'</span>':(same?' <span class="ok">✔ 提案書と同じ物件です</span>':' <span class="hint">（物件名を照合できませんでした。PDFと提案書が同じ物件か確かめてください）</span>'))):"";
   if(ST && ST.tei && dl){ var cl=lotOf(ST.tei); $("csvWarn").textContent=(cl && cl!==dl)?"⚠ この室温CSVは「"+cl+"」のものです。提案書（"+dl+"）と物件が違います。":""; }
 }
+/* 表紙の会社名・物件名: PDFの建物名「○○株式会社 ○○号地」から入れる（手で直したあとは変えない） */
+function coverSet(company,prop){
+  if($("coverCompany").dataset.touched!=="1" && company!=null) $("coverCompany").value=company;
+  if($("coverProp").dataset.touched!=="1" && prop!=null) $("coverProp").value=prop;
+}
+function splitBuilding(s){
+  s=String(s||"").replace(/\s+/g," ").trim();
+  var m=s.match(/^(\S*(?:株式会社|有限会社|合同会社|\(株\)|（株）)\S*) (.+)$/);
+  return m?{company:m[1],prop:m[2]}:{company:"",prop:s};
+}
 function applyPdf(){
   checkLots();
   if(!PDFDATA) return;
+  if(PDFDATA.building){ var cb=splitBuilding(PDFDATA.building); coverSet(cb.company,cb.prop); }
   if(PDFDATA.cost){
     COSTD=JSON.parse(JSON.stringify(PDFDATA.cost));
     drawCost(PDFDATA.cost.ok?'<span class="ok">✔ ホームズ君のPDFから取り込みました（文字をそのまま使うので、読み違いはありません）。合計も一致しています。</span>':'<span class="ng">PDFから取り込みましたが、合計が一致しません。数字を確かめてください。</span>');
@@ -2932,9 +2995,11 @@ function accSetSeries(){
 })();
 
 /* ---- 提案書を読み込む ---- */
+["coverCompany","coverProp"].forEach(function(id){ $(id).addEventListener("input",function(){ this.dataset.touched="1"; }); });
 async function openDeck(file){
   DECKFILE=file;
   await loadDeck(file);
+  var ci=readCoverInfo(); if(ci) coverSet(ci.company,ci.prop);
   $("deckName").textContent="提案書: "+file.name;
   $("deckDrop").innerHTML='<b>'+file.name+'</b> を読み込みました <span class="hint">（別の提案書にするときは、ここにドラッグ）</span><input type="file" id="deckIn" accept=".pptx" style="display:none">';
   hookDeckIn();
@@ -3014,11 +3079,13 @@ $("buildBtn").onclick=async function(){
   var doDrop=PDFDATA&&PDFDATA.drop&&$("useDrop").checked, doSolar=$("useSolar").checked, doAircon=$("useAircon").checked&&AC_LAST&&AC_LAST.pick;
   if(doSolar && !(+$("sol_t1").value && +$("sol_t2").value && +$("sol_t3").value && +$("sol_init").value)){ alert("太陽光: ①②③と設置費用を入れてください。"); tabTo("solar"); return; }
   if($("useAircon").checked && !doAircon){ alert(AC_LAST?"エアコン選定: どの機種でも、足りない時間が上限を超えます。機種表か上限を見直してください。":"エアコン選定: 暖冷房負荷_全熱.csv を入れて、LDKの列を選んでください。"); tabTo("aircon"); return; }
-  if(!doCost&&!doRoom&&!doHealth&&!doDrop&&!doSolar&&!doAircon){ alert("入れたいページにチェックを付けてください。"); return; }
+  var coverC=$("coverCompany").value.trim(), coverP=$("coverProp").value.trim(), doCoverInfo=!!(coverC||coverP||(readCoverInfo()));
+  if(!doCost&&!doRoom&&!doHealth&&!doDrop&&!doSolar&&!doAircon&&!doCoverInfo){ alert("入れたいページにチェックを付けてください。"); return; }
   $("buildBtn").disabled=true; $("bmsg").textContent="作成中…";
   try{
     await loadDeck(DECKFILE);   // 毎回、元の提案書から作り直す
     var made=[];
+    if(doCoverInfo){ if(updateCoverInfo(coverC,coverP)) made.push("表紙の会社名・物件名"); else alert("この提案書の表紙の形では、会社名・物件名を入れられませんでした。"); }
     if(doCost){ buildCost(COSTD); made.push("光熱費");
       if(PDFDATA && $("useCover").checked && updateCoverAmount(COSTD.cmp_total-COSTD.des_total)) made.push("表紙の金額"); }
     if(PDFDATA && PDFDATA.drop && $("useDrop").checked){
