@@ -86,7 +86,7 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
 </head>
 <body>
 <header>
-  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.13（更新日 2026-11-02）</span></h1>
+  <h1>提案書ページ作成（光熱費・室温・健康評価） <span id="toolVer" style="font-size:12px;font-weight:normal;opacity:.85;white-space:nowrap">Ver.1.14（更新日 2026-11-04）</span></h1>
   <div class="deck" id="deckName">提案書がまだ入っていません</div>
 </header>
 <div id="previewWarn" style="display:none;background:#FFF4E5;border-bottom:2px solid #E8862E;padding:14px 28px;font-size:14px;line-height:1.8">
@@ -169,6 +169,8 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
           <button class="ocr-btn" data-ocr="F1" data-target="pL1temp">読取</button></div>
         <div class="frow"><label>2F 室名</label><input type="text" id="pL2room" value="洋室"><input type="number" step="0.1" id="pL2temp" value=""> ℃
           <button class="ocr-btn" data-ocr="F2" data-target="pL2temp">読取</button></div>
+        <div class="frow floor3" style="display:none"><label>3F 室名</label><input type="text" id="pL3room" value="洋室"><input type="number" step="0.1" id="pL3temp" value=""> ℃
+          <button class="ocr-btn" data-ocr="F3" data-target="pL3temp">読取</button></div>
       </div>
       <div class="fieldset">
         <p class="ft" style="color:#5B6770">一般的な住宅（右）</p>
@@ -178,6 +180,8 @@ pre{background:#F7F9F8;border:1px solid var(--line);border-radius:6px;padding:12
           <button class="ocr-btn" data-ocr="F1" data-target="pR1temp">読取</button></div>
         <div class="frow"><label>2F 室名</label><input type="text" id="pR2room" value="洋室"><input type="number" step="0.1" id="pR2temp" value=""> ℃
           <button class="ocr-btn" data-ocr="F2" data-target="pR2temp">読取</button></div>
+        <div class="frow floor3" style="display:none"><label>3F 室名</label><input type="text" id="pR3room" value="洋室"><input type="number" step="0.1" id="pR3temp" value=""> ℃
+          <button class="ocr-btn" data-ocr="F3" data-target="pR3temp">読取</button></div>
       </div>
     </div>
     <div style="margin-top:12px">
@@ -728,10 +732,12 @@ async function buildRoom(d){
     b.rect(px,PY,PW,PH,bg); b.rect(px,PY,PW,HDR,hd);
     b.label(px,PY,PW,HDR,[[name,14,"FFFFFF",true],[sub?"  "+sub:"",10,"E6ECF2",false]],"ctr");
   }
-  const inner=PY+HDR+0.10*U, gap=0.04*U, rowH=((PY+PH-0.04*U)-inner-gap)/2, iw=PW-0.44*U, ih=1.44*U;
-  const cells=[["F1L",PLX,inner,"pL1","1F",true],["F2L",PLX,inner+rowH+gap,"pL2","2F",true],
-               ["F1R",PRX,inner,"pR1","1F",false],["F2R",PRX,inner+rowH+gap,"pR2","2F",false]];
-  // 4枚とも同じ縮尺にする（左右・1F/2Fで間取りの大きさがばらばらにならないように）。いちばん窮屈な1枚に合わせる
+  // 階数は画面の枚数で決まる（2階建て＝2段、3階建て＝3段）
+  const nFloor=d.images.F3L||d.images.F3R?3:2, small=nFloor===3;
+  const inner=PY+HDR+0.10*U, gap=0.04*U, rowH=((PY+PH-0.04*U)-inner-gap*(nFloor-1))/nFloor, iw=PW-0.44*U, ih=small?0.94*U:1.44*U;
+  const rowY=i=>inner+i*(rowH+gap), cells=[];
+  for(let i=0;i<nFloor;i++){ const f=i+1; cells.push(["F"+f+"L",PLX,rowY(i),"pL"+f,f+"F",true],["F"+f+"R",PRX,rowY(i),"pR"+f,f+"F",false]); }
+  // 全部同じ縮尺にする（左右・階で間取りの大きさがばらばらにならないように）。いちばん窮屈な1枚に合わせる
   const imgsAll=cells.map(c=>d.images[c[0]]).filter(Boolean);
   const kcm=imgsAll.length?Math.min(...imgsAll.map(im=>Math.min(iw/im.w, ih/im.h))):0;   // 1ピクセルあたりのcm
   for(const [key,px,py,rid,floor,plan] of cells){
@@ -739,15 +745,16 @@ async function buildRoom(d){
     if(img){ const w=img.w*kcm, h=img.h*kcm; b.pic(bx+(iw-w)/2,by+(ih-h)/2,w,h,img.bytes); }
     const fc=plan?main:SLATE;
     b.shape(bx-0.08*U,by-0.02*U,0.44*U,0.26*U,{geom:"roundRect",adj:50000,fill:"FFFFFF",line:fc,lw:1.25,paras:b.para([[floor,10,fc,true]],"ctr")});
-    const [room,temp]=d.rooms[rid], txt=`${room}  ${(+temp).toFixed(1)}℃`, bw=textWcm(txt,12)+0.9;
-    b.shape(bx+iw-bw-0.02*U,by+ih-0.34*U-0.03*U,bw,0.34*U,{geom:"roundRect",adj:50000,fill:fc,paras:b.para([[txt,12,"FFFFFF",true]],"ctr"),wrap:false});
+    const [room,temp]=d.rooms[rid], tsz=small?10:12, txt=`${room}  ${(+temp).toFixed(1)}℃`, bw=textWcm(txt,tsz)+0.9, bh=(small?0.28:0.34)*U;
+    b.shape(bx+iw-bw-0.02*U,by+ih-bh-0.03*U,bw,bh,{geom:"roundRect",adj:50000,fill:fc,paras:b.para([[txt,tsz,"FFFFFF",true]],"ctr"),wrap:false});
   }
   const cx=(PLX+PW+PRX)/2;
-  for(const [fl,yc] of [["1",inner+rowH/2],["2",inner+rowH+gap+rowH/2]]){
-    const diff=Math.round((+d.rooms["pL"+fl][1]-+d.rooms["pR"+fl][1])*10)/10, dd=0.82*U;
-    b.label(cx-1.6,yc-dd/2-0.75,3.2,0.5,[[d.diffLabel,10,ORANGE,true]],"ctr");
+  for(let i=0;i<nFloor;i++){
+    const fl=String(i+1), yc=rowY(i)+rowH/2;
+    const diff=Math.round((+d.rooms["pL"+fl][1]-+d.rooms["pR"+fl][1])*10)/10, dd=(small?0.60:0.82)*U;
+    b.label(cx-1.6,yc-dd/2-(small?0.52:0.75),3.2,0.5,[[d.diffLabel,small?8.5:10,ORANGE,true]],"ctr");
     b.shape(cx-dd/2,yc-dd/2,dd,dd,{geom:"ellipse",fill:ORANGE,wrap:false,
-      paras:b.para([[diff>=0?"+":"−",12,"FFFFFF",true],[Math.abs(diff).toFixed(1),20,"FFFFFF",true]],"ctr",0.9)+b.para([["℃",9,"FCE3CC",true]],"ctr",0.8)});
+      paras:b.para([[diff>=0?"+":"−",small?9:12,"FFFFFF",true],[Math.abs(diff).toFixed(1),small?14:20,"FFFFFF",true]],"ctr",0.9)+b.para([["℃",small?7:9,"FCE3CC",true]],"ctr",0.8)});
   }
   b.label(0.4*U,5.32*U,24,0.6,[[d.note,8.5,"6B7076",false]]);
   if(d.legend){   // 色の意味（右上）
@@ -1581,6 +1588,7 @@ function convSettings(){
 const SLOTS=[
   {key:"F1", label:"1F 画面全体"},
   {key:"F2", label:"2F 画面全体"},
+  {key:"F3", label:"3F 画面全体（3階建てのときだけ）"},
 ];
 const imgs={};       // key -> HTMLImageElement
 const gaps={};       // key -> {L,R}
@@ -1657,7 +1665,7 @@ window.addEventListener("paste",e=>{
 
 /* ===================== 変換ラッパ ===================== */
 function buildSharedLut(){
-  for(const key of ["F1","F2"]){
+  for(const key of ["F1","F2","F3"]){
     if(!imgs[key]) continue;
     const idata=imageData(imgs[key]);
     const bars=detectColorBars(idata);
@@ -1768,14 +1776,13 @@ function drawSlide(ctx, sides){
   const innerTop=PY+HDR+g(0.10);
   const rowGap=g(0.04);
   const avail=(PY+PH-g(0.04))-innerTop;
-  const rowH=(avail-rowGap)/2;
-  const imgW=PW-g(0.44), imgH=g(1.44);
-  const cells=[
-    {img:sides.F1&&sides.F1.left,  px:PLX+g(0.22), py:innerTop,             side:"plan", floor:"1F"},
-    {img:sides.F2&&sides.F2.left,  px:PLX+g(0.22), py:innerTop+rowH+rowGap, side:"plan", floor:"2F"},
-    {img:sides.F1&&sides.F1.right, px:PRX+g(0.22), py:innerTop,             side:"base", floor:"1F"},
-    {img:sides.F2&&sides.F2.right, px:PRX+g(0.22), py:innerTop+rowH+rowGap, side:"base", floor:"2F"},
-  ];
+  const nFloor=imgs.F3?3:2, small=nFloor===3;
+  document.querySelectorAll(".floor3").forEach(function(e){ e.style.display=small?"":"none"; });
+  const rowH=(avail-rowGap*(nFloor-1))/nFloor;
+  const imgW=PW-g(0.44), imgH=small?g(0.94):g(1.44);
+  const cells=[];
+  for(let i=0;i<nFloor;i++){ const k="F"+(i+1), yy=innerTop+i*(rowH+rowGap);
+    cells.push({img:sides[k]&&sides[k].left, px:PLX+g(0.22), py:yy, side:"plan", floor:(i+1)+"F"},{img:sides[k]&&sides[k].right, px:PRX+g(0.22), py:yy, side:"base", floor:(i+1)+"F"}); }
   for(const cl of cells){
     const boxX=cl.px, boxY=cl.py+(rowH-imgH)/2, boxW=imgW, boxH=imgH;
     if(cl.img){
@@ -1798,7 +1805,7 @@ function drawSlide(ctx, sides){
     ctx.fillStyle=fc; ctx.font="700 13px 'Meiryo',sans-serif";
     ctx.textAlign="center"; ctx.textBaseline="middle";
     ctx.fillText(cl.floor, fx+fw/2, fy+fh/2+1);
-    const rid=(isPlan?"pL":"pR")+(cl.floor==="1F"?"1":"2");
+    const rid=(isPlan?"pL":"pR")+cl.floor.charAt(0);
     const room=$(rid+"room").value, temp=$(rid+"temp").value;
     const btxt=room+"  "+temp+"℃";
     ctx.font="700 16px 'Meiryo',sans-serif";
@@ -1807,23 +1814,21 @@ function drawSlide(ctx, sides){
   }
 
   const cxm=(PLX+PW+PRX)/2;
-  const rows=[
-    {tl:+$("pL1temp").value, tr:+$("pR1temp").value, yc:innerTop+rowH/2},
-    {tl:+$("pL2temp").value, tr:+$("pR2temp").value, yc:innerTop+rowH+rowGap+rowH/2},
-  ];
+  const rows=[];
+  for(let i=0;i<nFloor;i++) rows.push({tl:+$("pL"+(i+1)+"temp").value, tr:+$("pR"+(i+1)+"temp").value, yc:innerTop+i*(rowH+rowGap)+rowH/2});
   for(const r of rows){
     const diff=Math.round((r.tl-r.tr)*10)/10;
-    const d=g(0.82), cx=cxm, cy=r.yc;
+    const d=g(small?0.60:0.82), cx=cxm, cy=r.yc, fs=small?0.73:1;
     ctx.fillStyle=COL.accent; ctx.font="700 15px 'Meiryo',sans-serif";
     ctx.textAlign="center"; ctx.textBaseline="middle";
-    ctx.fillText($("tDiffLabel").value, cx, cy-d/2-g(0.16));
+    ctx.fillText($("tDiffLabel").value, cx, cy-d/2-g(small?0.09:0.16));
     ctx.save(); ctx.shadowColor="rgba(232,134,46,.35)"; ctx.shadowBlur=12; ctx.shadowOffsetY=3;
     ctx.fillStyle=COL.accent; ctx.beginPath(); ctx.arc(cx,cy,d/2,0,Math.PI*2); ctx.fill(); ctx.restore();
     ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.textBaseline="alphabetic";
-    ctx.font="700 20px 'Meiryo',sans-serif"; ctx.fillText("+", cx-g(0.22), cy+g(0.02));
-    ctx.font="700 34px 'Meiryo',sans-serif"; ctx.fillText(Math.abs(diff).toFixed(1), cx+g(0.05), cy+g(0.03));
+    ctx.font="700 "+Math.round(20*fs)+"px 'Meiryo',sans-serif"; ctx.fillText("+", cx-g(0.22*fs), cy+g(0.02));
+    ctx.font="700 "+Math.round(34*fs)+"px 'Meiryo',sans-serif"; ctx.fillText(Math.abs(diff).toFixed(1), cx+g(0.05*fs), cy+g(0.03));
     ctx.fillStyle="#FCE3CC"; ctx.font="700 15px 'Meiryo',sans-serif";
-    ctx.textBaseline="middle"; ctx.fillText("℃", cx, cy+g(0.28));
+    ctx.textBaseline="middle"; ctx.fillText("℃", cx, cy+g(0.28*fs));
   }
 
   ctx.fillStyle=COL.muted; ctx.font="400 13px 'Meiryo',sans-serif";
@@ -2406,7 +2411,7 @@ function autoScale(){
     var bi=-1,bd=1e9; for(var k=0;k<n;k++){ var L=lut[k], dr=r-L[0], dg=g-L[1], db=b-L[2], dd=dr*dr+dg*dg+db*db; if(dd<bd){bd=dd;bi=k;} }
     var t=bd>200?null:oMax-(bi/(n-1))*(oMax-oMin); cache.set(key,t); return t;
   };
-  ["F1","F2"].forEach(function(key){
+  ["F1","F2","F3"].forEach(function(key){
     if(!imgs[key]) return;
     var gp=gaps[key]||{L:0.48,R:0.52};
     [["left",plan],["right",base]].forEach(function(sd){
@@ -2523,8 +2528,8 @@ async function readRoomName(cv,box){
 }
 async function autoReadRoom(key){
   if(!imgs[key]) return;
-  var fl=key==="F1"?"1":"2", st=$("autoTempSt");
-  st.textContent=(fl==="1"?"1F":"2F")+"の温度を読み取り中…";
+  var fl=key.slice(1), st=$("autoTempSt");
+  st.textContent=fl+"Fの温度を読み取り中…";
   try{
     var gp=gaps[key]||{L:0.48,R:0.52}, lut=buildSharedLut(), oMin=+$("origMin").value, oMax=+$("origMax").value;
     var L=cropSideGap(imgs[key],gp,"left"), R=cropSideGap(imgs[key],gp,"right");
@@ -2552,7 +2557,7 @@ async function autoReadRoom(key){
     $("pL"+fl+"temp").value=tp!=null?tp.toFixed(1):"";   // 読めなかった欄は空にして、手で入れる必要があることを分かるようにする
     $("pR"+fl+"temp").value=tb!=null?tb.toFixed(1):"";
     if(name){ $("pL"+fl+"room").value=name; $("pR"+fl+"room").value=name; }
-    st.innerHTML='<span class="ok">✔ '+(fl==="1"?"1F":"2F")+'：'+(name||"（部屋名は読めず）")+' 本プラン '+(tp!=null?tp.toFixed(1)+"℃":"<span class=ng>読めず</span>")+' ／ 一般的な住宅 '+(tb!=null?tb.toFixed(1)+"℃":"<span class=ng>読めず</span>")+'</span>　<span class="hint">'+((tp==null||tb==null)?"読めなかった温度は「読取」か手で入れてください":"違っていたら直してください")+'</span>';
+    st.innerHTML='<span class="ok">✔ '+fl+'F：'+(name||"（部屋名は読めず）")+' 本プラン '+(tp!=null?tp.toFixed(1)+"℃":"<span class=ng>読めず</span>")+' ／ 一般的な住宅 '+(tb!=null?tb.toFixed(1)+"℃":"<span class=ng>読めず</span>")+'</span>　<span class="hint">'+((tp==null||tb==null)?"読めなかった温度は「読取」か手で入れてください":"違っていたら直してください")+'</span>';
     window.ROOM_AUTO_DEBUG={key:key, plan:FL.boxes.length, base:FR.boxes.length, est:[P.info.est, qi&&qi.est]};
     scheduleRender();
   }catch(e){ console.error(e); st.textContent="自動の読み取りに失敗しました: "+e.message; }
@@ -2983,7 +2988,7 @@ function hookDeckIn(){
 /* ---- 室温の入力欄 ---- */
 $("doConvert").addEventListener("change",function(){ $("convOpts").style.display=$("doConvert").checked?"block":"none"; convCache={}; sharedLutKey=""; scheduleRender(); });
 ["newMin","newMax","origMin","origMax","redraw"].forEach(function(id){ $(id).addEventListener("input",function(){ convCache={}; scheduleRender(); }); });
-["tTitle","tLead","planName","planSub","baseName","baseSub","pL1room","pL1temp","pL2room","pL2temp","pR1room","pR1temp","pR2room","pR2temp","tDiffLabel","tNote"]
+["tTitle","tLead","planName","planSub","baseName","baseSub","pL1room","pL1temp","pL2room","pL2temp","pR1room","pR1temp","pR2room","pR2temp","pL3room","pL3temp","pR3room","pR3temp","tDiffLabel","tNote"]
   .forEach(function(id){ $(id).addEventListener("input",scheduleRender); });
 document.addEventListener("click",function(e){ if(e.target.classList.contains("ocr-btn")) openOcr(e.target.dataset.ocr, e.target.dataset.target); });
 $("ocrStage").addEventListener("mousedown",function(e){ ocrStageMouse(e,"down"); });
@@ -3003,7 +3008,7 @@ $("buildBtn").onclick=async function(){
   if(doCost && !(COSTD.cmp_total>0)){ alert("光熱費: 数字が入っていません。表に手で入れるか、「このページを提案書に入れる」のチェックを外してください。"); tabTo("cost"); return; }
   if(doRoom){
     if(!imgs.F1||!imgs.F2){ alert("室温: 1F・2Fの画面を両方貼り付けてください。"); tabTo("room"); return; }
-    if(["pL1temp","pL2temp","pR1temp","pR2temp"].some(function(id){ return $(id).value===""; })){ alert("室温: 温度が入っていない欄があります。"); tabTo("room"); return; }
+    if(["pL1temp","pL2temp","pR1temp","pR2temp"].concat(imgs.F3?["pL3temp","pR3temp"]:[]).some(function(id){ return $(id).value===""; })){ alert("室温: 温度が入っていない欄があります。"); tabTo("room"); return; }
   }
   if(doHealth && !window.HEALTH){ alert("健康評価: 先に「★を判定する」を押してください。"); tabTo("health"); return; }
   var doDrop=PDFDATA&&PDFDATA.drop&&$("useDrop").checked, doSolar=$("useSolar").checked, doAircon=$("useAircon").checked&&AC_LAST&&AC_LAST.pick;
@@ -3021,10 +3026,10 @@ $("buildBtn").onclick=async function(){
       else if(replaceDropImage(PDFDATA.drop.bytes,PDFDATA.drop.w,PDFDATA.drop.h)!=null) made.push("室温降下予測の図"); }
     if(doRoom){
       var sd=await computeSides();
-      await buildRoom({ images:{F1L:await sideImage(sd.F1.left),F1R:await sideImage(sd.F1.right),F2L:await sideImage(sd.F2.left),F2R:await sideImage(sd.F2.right)},
+      await buildRoom({ images:{F1L:await sideImage(sd.F1.left),F1R:await sideImage(sd.F1.right),F2L:await sideImage(sd.F2.left),F2R:await sideImage(sd.F2.right),F3L:imgs.F3?await sideImage(sd.F3.left):null,F3R:imgs.F3?await sideImage(sd.F3.right):null},
         title:$("tTitle").value, lead:$("tLead").value, kicker:$("tKicker").value,
         planName:$("planName").value, planSub:$("planSub").value, baseName:$("baseName").value, baseSub:$("baseSub").value,
-        rooms:{pL1:[$("pL1room").value,$("pL1temp").value],pL2:[$("pL2room").value,$("pL2temp").value],pR1:[$("pR1room").value,$("pR1temp").value],pR2:[$("pR2room").value,$("pR2temp").value]},
+        rooms:{pL1:[$("pL1room").value,$("pL1temp").value],pL2:[$("pL2room").value,$("pL2temp").value],pR1:[$("pR1room").value,$("pR1temp").value],pR2:[$("pR2room").value,$("pR2temp").value],pL3:[$("pL3room").value,$("pL3temp").value],pR3:[$("pR3room").value,$("pR3temp").value]},
         diffLabel:$("tDiffLabel").value, note:$("tNote").value, legend:legendData() });
       made.push("室温");
     }
